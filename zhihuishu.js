@@ -2,7 +2,7 @@ var cp="";//当前章节
 var np="";//下一章节
 var number=0;//章节计数
 var video=document.getElementsByTagName('video')[0];//视频对象
-$('.exploreTip>div').html("广外的童鞋们请注意：<i style='color: #f00'>不要拖动度条，不要自行操作</i>，一切都是自动的，在跳转到下一课会出现几秒的视频声音");
+$('.exploreTip>div').html("广外的童鞋们请注意：<i style='color: #f00'>不要拖动进度条，不要自行操作</i>，一切都是自动的，在跳转到下一课会出现几秒的视频声音");
 if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
 		window.setTimeout(function () {
 			$(".topic-list :first-child").click();
