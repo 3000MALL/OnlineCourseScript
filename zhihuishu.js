@@ -82,10 +82,10 @@ setInterval(function () {
 			$('.nextButton').click()
 			$(".videoArea").click();
 		}, 5000);
+		number++;
 		//视频加载完后，延时执行x1.25加速
 		setTimeout(function () {
 			$('.speedTab10').click();
 		}, 5000);
-		number++;
 	}
 }, 3000)
