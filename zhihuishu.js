@@ -79,13 +79,10 @@ setInterval(function () {
 		console.log("检测到视频观看完成，准备跳到下一节");
 		//延时5秒执行操作
 		setTimeout(function () {
-			$('.nextButton').click()
-			$(".videoArea").click();
+			$('.nextButton').click();  //下一课
+			$('.videoArea').click();  //播放
+			$('.speedTab10').click(); //以x1.25加速播放
 		}, 5000);
 		number++;
-		//视频加载完后，延时执行x1.25加速
-		setTimeout(function () {
-			$('.speedTab10').click();
-		}, 5000);
 	}
 }, 3000)
