@@ -17,14 +17,15 @@ if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
 
 //绘制窗口
 function drawWindow(){
-//加载css文件
-$('head').append('<link href="https://ghcdn.rawgit.org/LDS-Skeleton/OnlineCourseScript/master/main.css?t='+new Date().getTime()+'" rel="stylesheet" type="text/css" />');
-//标签拼接
-$("body").append("<div id='skdiv'></div>");
-$("#skdiv").html("<p ><span style='font-weight:bold;    font-size: large;'>智慧树刷课脚本</span>（可用鼠标拖动）<p><p>版本：20200517 广西外国语学院市营专1906班</p><div id='content' style='   border-top: 2px solid;'></div>");
-$('#content').html('<div ><p  id="rate_txt" >当前播放速度：默认1.25倍速</p><button id="startplay" onclick="start()">刷课任务加载成功，正在刷课..</button>');
-$('#content').html($('#content').html()+"<div style='margin-top:10px'><p style='font-weight:bold'>当前进度:&nbsp;&nbsp;<span id='progress'>0%</span></p><hr></hr><p  id='cp'>当前章节：</p><p id='np'>下一章节：</p></div>");
-dragPanelMove("#skdiv","#skdiv");
+	//加载css文件
+	$('head').append('<link href="https://ghcdn.rawgit.org/LDS-Skeleton/OnlineCourseScript/master/main.css?t='+new Date().getTime()+'" rel="stylesheet" type="text/css" />');
+	//标签拼接
+	$("body").append("<div id='skdiv'></div>");
+	$("#skdiv").html("<p ><span style='font-weight:bold;    font-size: large;'>智慧树刷课脚本</span>（可用鼠标拖动）<p><p>版本：20200517 广西外国语学院市营专1906班</p><div id='content' style='   border-top: 2px solid;'></div>");
+	$('#content').html('<div ><p  id="rate_txt" >当前播放速度：默认1.25倍速</p><button id="startplay" onclick="start()">刷课任务加载成功，正在刷课..</button>');
+	$('#content').html($('#content').html()+"<div style='margin-top:10px'><p style='font-weight:bold'>当前进度:&nbsp;&nbsp;<span id='progress'>0%</span></p><hr></hr><p  id='cp'>当前章节：</p><p id='np'>下一章节：</p></div>");
+
+	dragPanelMove("#skdiv","#skdiv");
 }
 
 
@@ -78,7 +79,7 @@ setInterval(function () {
 	if ($(".current_play div b:nth-child(2)").hasClass('time_icofinish') || $(".current_play div b:nth-child(3)").hasClass('time_icofinish')) {
 		console.log("检测到视频观看完成，准备跳到下一节");
 		//延时5秒执行操作
-		setTimeout(function () {
+		window.setTimeout(function () {
 			$('.nextButton').click();  //下一课
 			$('.videoArea').click();  //播放
 			$('.speedTab10').click(); //以x1.25加速播放
