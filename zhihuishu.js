@@ -59,6 +59,7 @@ for(var i=0;i<$('.video').length;i++){
 //执行刷课
 setTimeout(function () {
 	$('.speedTab10').click();
+	$('.volumeIcon').click();
 	console.log("刷课任务加载成功，正在刷课...");
 }, 3000);
 setInterval(function () {
@@ -82,6 +83,7 @@ setInterval(function () {
 		$('.videoArea').click();
 		setTimeout(function () {
 			$('.speedTab10').click(); //以x1.25速度播放
+			$('.volumeIcon').click();
 		}, 5000);
 		number++;
 	}
