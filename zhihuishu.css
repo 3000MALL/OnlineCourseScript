@@ -7,12 +7,12 @@
     padding: 10px;
     top: 40px;
     right: 20%;
-    border: 1px solid #000;
-    border-radius: 8px;
+    border: 2px solid #000;
+    border-radius: 10px;
     text-align: center;
 }
 
-/*button{background: #9f9fa5;font-weight: bold;}*/
+/*button{background: #bfbfbf;;font-weight: bold;}*/
 
 #rate_txt{
 	float:left;
@@ -22,7 +22,10 @@
 }
 
 #startplay{
-	margin-top:10px
+	margin-top: 10px;
+   	padding: 8px;
+    	border-radius: 35px;
+    	width: 56%;
 }
 
 #b1{
