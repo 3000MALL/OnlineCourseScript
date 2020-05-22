@@ -3,7 +3,7 @@
 	z-index: 999999999;
 	background-image: linear-gradient(180deg,hsla(0,0%,100%,0) 60%,#fff),linear-gradient(70deg,#dbedff 32%,#ebfff0);
 	height: auto;
-	width: 20%;
+	width: 365px;/*width: 20%;*/
 	padding: 10px;
 	top: 40px;
 	right: 20%;
@@ -15,7 +15,7 @@
 
 #rate_txt{
 	float:left;
-	margin-top:10px;
+	margin:5px 0 5px 12px;
 	width:80%;
 	text-align:left;
 }
@@ -28,7 +28,6 @@
 .btn {
 	position: relative;
 	display: inline-block;
-	font-weight: 600;
 	line-height: 20px;
 	white-space: nowrap;
 	vertical-align: middle;
