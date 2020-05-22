@@ -13,6 +13,11 @@
 	text-align: center;
 }
 
+#progress{
+font-size: 20px;
+line-height: 1.2;
+}
+
 #rate_txt{
 	float:left;
 	margin:5px 0 5px 12px;
