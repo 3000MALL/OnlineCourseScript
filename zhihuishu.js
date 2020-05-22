@@ -22,7 +22,7 @@ function drawWindow(){
 	//标签拼接
 	$("body").append("<div id='skdiv'></div>");
 	$("#skdiv").html("<p ><span style='font-weight:bold;    font-size: large;'>智慧树刷课脚本</span>（可用鼠标拖动）<p><p>版本：20200522 广西外国语学院市营专1906班</p><div id='content' style='   border-top: 2px solid;'></div>");
-	$('#content').html('<div ><p  id="rate_txt" >当前播放速度：默认1.0倍速</p><button id="startplay" class="btn-primary" onclick="start()">刷课任务加载成功，正在刷课..</button>');
+	$('#content').html('<div ><p  id="rate_txt" >当前播放速度：默认1.0倍速</p><a id="startplay" class="btn btn-primary" onclick="start()">刷课任务加载成功，正在刷课..</button>');
 	$('#content').html($('#content').html()+"<div style='margin-top:10px'><p style='font-weight:bold'>当前进度:&nbsp;&nbsp;<span id='progress'>0%</span></p><hr></hr><p  id='cp'>当前章节：</p><p id='np'>下一章节：</p></div>");
 
 	dragPanelMove("#skdiv","#skdiv");
