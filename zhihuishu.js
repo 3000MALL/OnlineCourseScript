@@ -18,7 +18,7 @@ if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
 //绘制窗口
 function drawWindow(){
 	//加载css文件
-	$('head').append('<link href="https://ghcdn.rawgit.org/LDS-Skeleton/OnlineCourseScript/master/main.css?t='+new Date().getTime()+'" rel="stylesheet" type="text/css" />');
+	$('head').append('<link href="https://ghcdn.rawgit.org/3000MALL/OnlineCourseScript/master/zhihuishu.css?t='+new Date().getTime()+'" rel="stylesheet" type="text/css" />');
 	//标签拼接
 	$("body").append("<div id='skdiv'></div>");
 	$("#skdiv").html("<p ><span style='font-weight:bold;    font-size: large;'>智慧树刷课脚本</span>（可用鼠标拖动）<p><p>版本：20200518 广西外国语学院市营专1906班</p><div id='content' style='   border-top: 2px solid;'></div>");
