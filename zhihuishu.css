@@ -21,7 +21,6 @@
 }
 
 #startplay{
-	padding-top:10px
 	padding: 10px 50px;
 	font-size: 16px;
 }
@@ -60,7 +59,7 @@ input{
 	width: 100%;
 	font-size: 14px;
 	font-weight: bold;
-	background: white;
+	background: #fff;
 	width:100%;
 	height:auto;
 	display:none;
