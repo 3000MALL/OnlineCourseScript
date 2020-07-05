@@ -57,34 +57,34 @@ for(var i=0;i<$('.video').length;i++){
 
 
 //执行刷课
-setTimeout(function () {
+//setTimeout(function () {
 	//$('.speedTab10').click();
-	$('.volumeIcon').click();
-	console.log("刷课任务加载成功，正在刷课...");
-}, 3000);
-setInterval(function () {
-	cp=$('.video').eq(number).find('.catalogue_title').text();//当前章节
-	np=$('.video').eq(number+1).find('.catalogue_title').text();//下一章节
-	$('#cp').text("当前章节："+cp);
-	$('#np').text("下一章节："+np);
-	$('#progress').text($('.passTime').css('width'));
+	//$('.volumeIcon').click();
+	//console.log("刷课任务加载成功，正在刷课...");
+//}, 3000);
+//setInterval(function () {
+	//cp=$('.video').eq(number).find('.catalogue_title').text();//当前章节
+	//np=$('.video').eq(number+1).find('.catalogue_title').text();//下一章节
+	//$('#cp').text("当前章节："+cp);
+	//$('#np').text("下一章节："+np);
+	//$('#progress').text($('.passTime').css('width'));
 	//检测弹窗测试
-	if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
-		window.setTimeout(function () {
-			$(".topic-list :first-child").click();
-			$(".el-icon-close").click();
-			$(".videoArea").click();
-		}, 1000);
-	}
+	//if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
+		//window.setTimeout(function () {
+			//$(".topic-list :first-child").click();
+			//$(".el-icon-close").click();
+			//$(".videoArea").click();
+		//}, 1000);
+	//}
 	//检测观看进度是否已达成
-	if ($(".current_play div b:nth-child(2)").hasClass('time_icofinish') || $(".current_play div b:nth-child(3)").hasClass('time_icofinish')) {
-		console.log("检测到视频观看完成，准备跳到下一节");
-		$('.nextButton').click(); 
-		$('.videoArea').click();
-		setTimeout(function () {
+	//if ($(".current_play div b:nth-child(2)").hasClass('time_icofinish') || $(".current_play div b:nth-child(3)").hasClass('time_icofinish')) {
+		//console.log("检测到视频观看完成，准备跳到下一节");
+		//$('.nextButton').click(); 
+		//$('.videoArea').click();
+		//setTimeout(function () {
 			//$('.speedTab10').click(); //以x1.25速度播放
-			$('.volumeIcon').click();
-		}, 5000);
-		number++;
-	}
-}, 3000)
+			//$('.volumeIcon').click();
+		//}, 5000);
+		//number++;
+	//}
+//}, 3000)
