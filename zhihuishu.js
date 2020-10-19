@@ -56,7 +56,7 @@ for(var i=0;i<$('.video').length;i++){
 }
 
 
-执行刷课
+//执行刷课
 setTimeout(function () {
 	$('.speedTab10').click();
 	$('.volumeIcon').click();
@@ -68,7 +68,7 @@ setInterval(function () {
 	$('#cp').text("当前章节："+cp);
 	$('#np').text("下一章节："+np);
 	$('#progress').text($('.passTime').css('width'));
-	检测弹窗测试
+	//检测弹窗测试
 	if ($('.el-dialog__header>div>h4').text() == "弹题测验") {
 		window.setTimeout(function () {
 			$(".topic-list :first-child").click();
@@ -76,7 +76,7 @@ setInterval(function () {
 			$(".videoArea").click();
 		}, 1000);
 	}
-	检测观看进度是否已达成
+	//检测观看进度是否已达成
 	if ($(".current_play div b:nth-child(2)").hasClass('time_icofinish') || $(".current_play div b:nth-child(3)").hasClass('time_icofinish')) {
 		console.log("检测到视频观看完成，准备跳到下一节");
 		$('.nextButton').click(); 
