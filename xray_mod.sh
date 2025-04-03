@@ -286,7 +286,6 @@ getData() {
             if [[ -z "${res}" ]]; then
                 colorEcho ${BLUE}  "${DOMAIN} 解析结果：${resolve}"
                 colorEcho ${RED}  " 域名未解析到当前服务器IP(${IP})!"
-                exit 1
             fi
         fi
     fi
@@ -496,7 +495,7 @@ module_hotfixes=true' > /etc/yum.repos.d/nginx.repo
         fi
         $CMD_INSTALL nginx
         if [[ "$?" != "0" ]]; then
-            colorEcho $RED " Nginx安装失败，请到 https://hijk.art 反馈"
+            colorEcho $RED " Nginx安装失败，请到微信反馈给3000mall"
             exit 1
         fi
         systemctl enable nginx
@@ -551,7 +550,7 @@ getCert() {
             systemctl start cron
             systemctl enable cron
         fi
-        curl -sL https://get.acme.sh | sh -s email=hijk.pw@protonmail.sh
+        curl -sL https://get.acme.sh | sh -s email=3000mall@dimsn.com
         source ~/.bashrc
         ~/.acme.sh/acme.sh  --upgrade  --auto-upgrade
         ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
@@ -1792,11 +1791,12 @@ menu() {
     echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com           #"
     echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com       #"
     echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/3000mallclub      #"
+    echo -e "# ${RED}注意${PLAIN}: 本脚本仅内部，请不要外传，谢谢！      #"
     echo "###########################################################"
-    echo -e "  ${GREEN}1.${PLAIN}   安装Xray-VMESS"
+    echo -e "  ${GREEN}1.${PLAIN}   安装Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(推荐)${PLAIN}"
     echo -e "  ${GREEN}2.${PLAIN}   安装Xray-${BLUE}VMESS+mKCP${PLAIN}"
     echo -e "  ${GREEN}3.${PLAIN}   安装Xray-VMESS+TCP+TLS"
-    echo -e "  ${GREEN}4.${PLAIN}   安装Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(推荐)${PLAIN}"
+    echo -e "  ${GREEN}4.${PLAIN}   安装Xray-VMESS"
     echo -e "  ${GREEN}5.${PLAIN}   安装Xray-${BLUE}VLESS+mKCP${PLAIN}"
     echo -e "  ${GREEN}6.${PLAIN}   安装Xray-VLESS+TCP+TLS"
     echo -e "  ${GREEN}7.${PLAIN}   安装Xray-${BLUE}VLESS+WS+TLS${PLAIN}${RED}(可过cdn)${PLAIN}"
@@ -1825,6 +1825,8 @@ menu() {
             exit 0
             ;;
         1)
+            TLS="true"
+            WS="true"
             install
             ;;
         2)
@@ -1836,8 +1838,6 @@ menu() {
             install
             ;;
         4)
-            TLS="true"
-            WS="true"
             install
             ;;
         5)
