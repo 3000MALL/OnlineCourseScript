@@ -37,7 +37,7 @@ V6_PROXY=""
 IP=`curl -sL -4 ip.sb`
 if [[ "$?" != "0" ]]; then
     IP=`curl -sL -6 ip.sb`
-    V6_PROXY="https://gh.3000mall.com/"
+    V6_PROXY="https://gh.hijk.art/"
 fi
 
 BT="false"
