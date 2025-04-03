@@ -283,14 +283,15 @@ getData() {
         else
             resolve=`curl -sL http://ip-api.com/json/${DOMAIN}`
             res=`echo -n ${resolve} | grep ${IP}`
-			while true
-   			do
-	            if [[ -z "${res}" ]]; then
-	                colorEcho ${BLUE}  "${DOMAIN} 解析结果：${resolve}"
-	                colorEcho ${RED}  " 域名未解析到当前服务器IP(${IP})!"
-	            else
-			 		break
-	            fi
+            if [[ -z "${res}" ]]; then
+                colorEcho ${BLUE}  "${DOMAIN} 解析结果：${resolve}"
+                colorEcho ${RED}  " 域名未解析到当前服务器IP(${IP})!"
+	        echo " "
+	        read -p " 确认满足按y，按其他退出脚本：" answer
+	        if [[ "${answer,,}" != "y" ]]; then
+	            exit 0
+	        fi
+            fi
         fi
     fi
 
