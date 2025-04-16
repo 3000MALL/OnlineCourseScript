@@ -9,6 +9,10 @@ YELLOW="\033[33m"   # Warning message
 BLUE="\033[36m"     # Info message
 PLAIN='\033[0m'
 
+colorEcho() {
+    echo -e "${1}${@:2}${PLAIN}"
+}
+
 # 以下网站是随机从Google上找到的无广告小说网站，不喜欢请改成其他网址，以http或https开头
 # 搭建好后无法打开伪装域名，可能是反代小说网站挂了，请在网站留言，或者Github发issue，以便替换新的网站
 SITES=(
@@ -1786,14 +1790,15 @@ showLog() {
 
 menu() {
     clear
-    echo "###########################################################"
-    echo -e "#                     ${RED}Xray一键安装脚本${PLAIN}                     #"
-    echo -e "# ${GREEN}作者${PLAIN}: 3000mall(CPLA_54J)             #"
-    echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com           #"
-    echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com       #"
-    echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/3000mallclub      #"
-    echo -e "# ${RED}注意${PLAIN}: 本脚本仅内部，请不要外传，谢谢！      #"
-    echo "###########################################################"
+    echo "#############################################################"
+    echo -e "#                   ${RED}Xray一键安装脚本${PLAIN}                       #"
+    echo -e "# ${GREEN}作者${PLAIN}: 3000mall(CPLA_54J)                                      #"
+    echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com                                               #"
+    echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com                             #"
+    echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/3000mallclub                               #"
+    echo -e "# ${RED}注意${PLAIN}: 本脚本仅内部，请不要外传，谢谢！                                     #"
+    echo -e "#                                                           #"	
+    echo "#############################################################"
     echo -e "  ${GREEN}1.${PLAIN}   安装Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(推荐)${PLAIN}"
     echo -e "  ${GREEN}2.${PLAIN}   安装Xray-${BLUE}VMESS+mKCP${PLAIN}"
     echo -e "  ${GREEN}3.${PLAIN}   安装Xray-VMESS+TCP+TLS"
