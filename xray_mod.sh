@@ -1791,12 +1791,12 @@ showLog() {
 menu() {
     clear
     echo "#############################################################"
-    echo -e "#                   ${RED}Xray一键安装脚本${PLAIN}                #"
-    echo -e "# ${GREEN}作者${PLAIN}: 3000mall(CPLA_54J)                    #"
-    echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com                  #"
-    echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com              #"
-    echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/3000mallclub            #"
-    echo -e "# ${RED}注意${PLAIN}: 本脚本仅内部，请不要外传，谢谢！                        #"
+    echo -e "#                   ${RED}Xray一键安装脚本${PLAIN}			#"
+    echo -e "# ${GREEN}作者${PLAIN}: 3000mall(CPLA_54J)				#"
+    echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com			#"
+    echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com			#"
+    echo -e "# ${GREEN}TG群${PLAIN}: https://t.me/3000mallclub			#"
+    echo -e "# ${RED}注意${PLAIN}: 本脚本仅内部，请不要外传，谢谢！		#"
     echo -e "#                                                           #"	
     echo "#############################################################"
     echo -e "  ${GREEN}1.${PLAIN}   安装Xray-${BLUE}VMESS+WS+TLS${PLAIN}${RED}(推荐)${PLAIN}"
