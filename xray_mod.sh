@@ -54,24 +54,23 @@ XTLS="false"
 KCP="false"
 
 checkSystem() {
-
     # 检查root权限
     if [[ $EUID -ne 0 ]]; then
         colorEcho $RED " 请以root身份执行该脚本"
         exit 1
     fi
 
-    # 检查包管理器，并设置命令
+    # 检查包管理器，并设置命令（修复命令格式）
     if command -v yum >/dev/null 2>&1; then
         PMT="yum"
-        CMD_INSTALL="yum install -y "
-        CMD_REMOVE="yum remove -y "
-        CMD_UPGRADE="yum update -y"
+        CMD_INSTALL="yum -y install"  # 修正：去掉末尾空格，确保命令格式正确
+        CMD_REMOVE="yum -y remove"
+        CMD_UPGRADE="yum -y update"
     elif command -v apt >/dev/null 2>&1; then
         PMT="apt"
-        CMD_INSTALL="apt install -y "
-        CMD_REMOVE="apt remove -y "
-        CMD_UPGRADE="apt update && apt upgrade -y && apt autoremove -y"
+        CMD_INSTALL="apt -y install"  # 修正：去掉末尾空格
+        CMD_REMOVE="apt -y remove"
+        CMD_UPGRADE="apt update && apt -y upgrade && apt -y autoremove"
     else
         colorEcho $RED " 不受支持的Linux系统 (仅支持基于 Yum 或 Apt 的系统)"
         exit 1
@@ -83,23 +82,53 @@ checkSystem() {
         exit 1
     fi
 
-    # 检查并安装 qrencode
+    # 在安装前更新包索引（关键修复）
+    colorEcho $BLUE " 正在更新软件源..."
+    if [[ $PMT == "yum" ]]; then
+        yum makecache fast -y
+    elif [[ $PMT == "apt" ]]; then
+        apt update -y
+    fi
+
+    # 检查并安装 qrencode（添加错误处理）
     if ! command -v qrencode >/dev/null 2>&1; then
         colorEcho $YELLOW " qrencode 未安装，正在为你安装..."
-        $CMD_INSTALL qrencode
-        if ! command -v qrencode >/dev/null 2>&1; then
-            colorEcho $RED " qrencode 安装失败，请手动安装后再运行脚本。"
-            exit 1
+        if ! $CMD_INSTALL qrencode; then
+            colorEcho $YELLOW " 标准安装失败，尝试备选方案..."
+            
+            # 针对不同发行版的备选方案
+            if [[ $PMT == "apt" ]] && grep -qi "ubuntu" /etc/os-release; then
+                apt install -y libqrencode-dev || true
+            elif [[ $PMT == "yum" ]] && grep -qi "centos" /etc/os-release; then
+                yum install -y epel-release && yum install -y qrencode
+            fi
+            
+            # 最终检查
+            if ! command -v qrencode >/dev/null 2>&1; then
+                colorEcho $RED " qrencode 安装失败，请手动执行以下命令："
+                colorEcho $GREEN " Ubuntu/Debian: sudo apt install -y qrencode"
+                colorEcho $GREEN " CentOS/RHEL:   sudo yum install -y qrencode"
+                exit 1
+            fi
         fi
     fi
 
-    # 检查并安装 jq
+    # 检查并安装 jq（同样添加错误处理）
     if ! command -v jq >/dev/null 2>&1; then
         colorEcho $YELLOW " jq 未安装，正在为你安装..."
-        $CMD_INSTALL jq
-        if ! command -v jq >/dev/null 2>&1; then
-            colorEcho $RED " jq 安装失败！请手动安装后重试。"
-            exit 1
+        if ! $CMD_INSTALL jq; then
+            colorEcho $YELLOW " 标准安装失败，尝试备选方案..."
+            
+            if [[ $PMT == "yum" ]]; then
+                yum install -y epel-release && yum install -y jq
+            fi
+            
+            if ! command -v jq >/dev/null 2>&1; then
+                colorEcho $RED " jq 安装失败，请手动执行："
+                colorEcho $GREEN " Ubuntu/Debian: sudo apt install -y jq"
+                colorEcho $GREEN " CentOS/RHEL:   sudo yum install -y jq"
+                exit 1
+            fi
         fi
     fi
 }
