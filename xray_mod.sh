@@ -267,15 +267,35 @@ getData() {
         fi
 
         echo ""
-        while true
-        do
-            read -p " 请输入伪装域名：" DOMAIN
-            if [[ -z "${DOMAIN}" ]]; then
-                colorEcho ${RED} " 域名输入错误，请重新输入！"
-            else
-                break
-            fi
-        done
+	# 授权域名列表
+	ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
+	
+	while true
+	do
+	    read -p " 请输入伪装域名：" DOMAIN
+	    DOMAIN=$(echo "$DOMAIN" | tr '[:upper:]' '[:lower:]')  # 转换为小写
+	    DOMAIN="${DOMAIN%.}"  # 去除末尾可能的点
+	
+	    if [[ -z "${DOMAIN}" ]]; then
+	        colorEcho ${RED} " 域名不能为空，请重新输入！"
+	    else
+	        # 检查是否为授权域名或其子域名
+	        valid=0
+	        for allowed in "${ALLOWED_DOMAINS[@]}"; do
+	            # 精确匹配或子域名匹配
+	            if [[ "$DOMAIN" == "$allowed" || "$DOMAIN" =~ \."$allowed"$ ]]; then
+	                valid=1
+	                break
+	            fi
+	        done
+	
+	        if [[ $valid -eq 1 ]]; then
+	            break
+	        else
+	            colorEcho ${RED} " 域名必须属于以下授权域名：ciuok.com, dimsn.com, hhgtk.com！"
+	        fi
+	    fi
+	done
         DOMAIN=${DOMAIN,,}
         colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
 
