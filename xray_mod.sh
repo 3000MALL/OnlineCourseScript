@@ -1931,15 +1931,15 @@ showInfoWithSocks5() {
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
             echo -e "   用法：socks5://${listen}:${port}"
         fi
-        # 生成二维码
-        if command -v qrencode >/dev/null 2>&1; then
-            echo
-            echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-            showQR
-            echo
-        else
-            echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
-        fi
+    fi
+    # 生成二维码
+    if command -v qrencode >/dev/null 2>&1; then
+        echo
+        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+        showQR
+        echo
+    else
+        echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
     fi
 }
 
