@@ -1398,11 +1398,12 @@ install() {
     fi
 
     installNginx
-    setFirewall
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         getCert
     fi
     configNginx
+    configXray
+    setFirewall
 
     colorEcho $BLUE " 安装Xray..."
     getVersion
@@ -1952,7 +1953,7 @@ showInfoWithSocks5() {
             echo -n "$link2" | qrencode -o - -t utf8
             echo
         fi
-	echo "setFirewall: PORT=$PORT XPORT=$XPORT"
+        echo "setFirewall: PORT=$PORT XPORT=$XPORT"
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
     fi
@@ -2010,7 +2011,7 @@ showLog() {
 menu() {
     clear
     echo "#############################################################"
-    echo -e "#                   ${RED}xray一键安装脚本${PLAIN}                         #"
+    echo -e "#                   ${RED}xray一键安装脚本${PLAIN}                        #"
     echo -e "# ${GREEN}作者${PLAIN}: 3000mall(CPLA_54J)                                  #"
     echo -e "# ${GREEN}网址${PLAIN}: https://3000mall.com                                #"
     echo -e "# ${GREEN}论坛${PLAIN}: https://bbs.3000mall.com                            #"
