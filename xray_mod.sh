@@ -268,6 +268,7 @@ getData() {
 
         echo ""
 	
+	# 授权域名列表
 	ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
 	while true
 	do
