@@ -1598,6 +1598,7 @@ getConfigFileInfo() {
     ws="false"
     xtls="false"
     trojan="false"
+    socks="false"
     protocol="VMess"
     kcp="false"
 
@@ -1796,9 +1797,7 @@ outputTrojanWS() {
     echo -e "   ${BLUE}trojan链接:${PLAIN} $RED$link$PLAIN"
 }
 
-outputTrojanXTLS() {
-    # 假定参数已准备好：domain, port, password, flow, network
-    # 构建 trojan 标准链接（XTLS 方案实际上推荐用于vless/trojan+xtls，但URL参数依然写法类似）
+outputTrojanXTLS() { #暂时不用
     link="trojan://${password}@${domain}:${port}?flow=${flow}&encryption=none&type=${network}&security=xtls#${password}"
     
     echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
@@ -1965,6 +1964,10 @@ showInfo() {
             echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}"
         fi
     fi
+    if [[ "$socks5" = "true" ]]; then
+        echo -e "还有一个socks"
+        return 0
+    fi
 }
 
 showInfoWithSocks5() {
@@ -1997,7 +2000,7 @@ showInfoWithSocks5() {
     if command -v qrencode >/dev/null 2>&1; then
         echo
         echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-        echo -n "   $link" | qrencode -o - -t utf8
+        echo -n "$link" | qrencode -o - -t utf8
         echo
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
