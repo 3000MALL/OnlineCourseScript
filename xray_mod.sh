@@ -1427,11 +1427,11 @@ install() {
     fi
 
     installNginx
+    setFirewall
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         getCert
     fi
     configNginx
-    configXray
 
     colorEcho $BLUE " 安装Xray..."
     getVersion
@@ -1445,11 +1445,11 @@ install() {
         installXray
     fi
 
-    # configXray
+    configXray
 
     setSelinux
     installBBR
-    setFirewall
+
     start
     showInfoWithSocks5
 
