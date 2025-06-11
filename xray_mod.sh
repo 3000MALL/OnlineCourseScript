@@ -1935,7 +1935,7 @@ showInfoWithSocks5() {
         if command -v qrencode >/dev/null 2>&1; then
             echo
             echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-            qrencode -o - -t ANSIUTF8 "$socks_link"
+            showQR
             echo
         else
             echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
