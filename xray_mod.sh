@@ -1952,6 +1952,7 @@ showInfoWithSocks5() {
             echo -n "$link2" | qrencode -o - -t utf8
             echo
         fi
+	echo "setFirewall: PORT=$PORT XPORT=$XPORT"
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
     fi
