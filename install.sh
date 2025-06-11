@@ -1714,7 +1714,8 @@ installSocks5CheckAndInstall() {
         colorEcho $RED " 错误：端口号必须在 1-65535 范围内！"
         return 1
     fi
-
+    
+    # 监听地址0.0.0.0
     [[ -z "$socks_ip" ]] && socks_ip="0.0.0.0"
 
     echo
@@ -1735,26 +1736,7 @@ installSocks5CheckAndInstall() {
         socks_user=""
         socks_pass=""
     fi
-    # 安装确认
-    echo
-    colorEcho $YELLOW " 即将安装SOCKS5代理服务"
-    echo -e "  监听地址: ${GREEN}${socks_ip}${PLAIN}"
-    echo -e "  监听端口: ${GREEN}${socks_port}${PLAIN}"
-    if [[ -n "$socks_user" ]]; then
-        echo -e "  认证方式: ${GREEN}账号密码${PLAIN}"
-        echo -e "  用户名:   ${GREEN}${socks_user}${PLAIN}"
-        echo -e "  密码:     ${GREEN}${socks_pass}${PLAIN}"
-    else
-        echo -e "  认证方式: ${GREEN}无认证${PLAIN}"
-    fi
-    echo
-    
-    read -p " 是否继续安装？[y/N]：" confirm
-    if [[ "${confirm,,}" != "y" ]]; then
-        colorEcho $YELLOW " 安装已取消"
-        return
-    fi
-    
+
     addSocks5Inbound "$socks_port" "$socks_ip" "$socks_user" "$socks_pass"
     systemctl restart xray
     sleep 2
