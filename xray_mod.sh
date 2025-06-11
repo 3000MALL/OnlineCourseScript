@@ -1486,7 +1486,7 @@ install() {
     fi
 
     configXray
-
+    installSocks5CheckAndInstall
     setSelinux
     installBBR
     setFirewall
