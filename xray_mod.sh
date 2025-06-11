@@ -559,7 +559,7 @@ getCert() {
     mkdir -p /usr/local/etc/xray
     if [[ -z ${CERT_FILE+x} ]]; then
         stopNginx
-        systemctl stop xray
+        systemctl stop xray 2>/dev/null || true
         res=`netstat -ntlp| grep -E ':80 |:443 '`
         if [[ "${res}" != "" ]]; then
             colorEcho ${RED}  " 其他进程占用了80或443端口，请先关闭再运行一键脚本"
@@ -881,7 +881,7 @@ installXray() {
         colorEcho $RED " 下载Xray文件失败，请检查服务器网络设置"
         exit 1
     fi
-    systemctl stop xray
+    systemctl stop xray 2>/dev/null || true
     mkdir -p /usr/local/etc/xray /usr/local/share/xray && \
     unzip /tmp/xray/xray.zip -d /tmp/xray
     cp /tmp/xray/xray /usr/local/bin
@@ -1552,7 +1552,7 @@ start() {
 
 stop() {
     stopNginx
-    systemctl stop xray
+    systemctl stop xray 2>/dev/null || true
     colorEcho $BLUE " Xray停止成功"
 }
 
