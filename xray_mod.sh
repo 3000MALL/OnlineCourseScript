@@ -1546,7 +1546,6 @@ getConfigFileInfo() {
     ws="false"
     xtls="false"
     trojan="false"
-    socks="false"
     protocol="VMess"
     kcp="false"
 
@@ -1912,14 +1911,10 @@ showInfo() {
             echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}"
         fi
     fi
-    if [[ "$socks" = "true" ]]; then
-        echo -e "还有一个socks"
-        return 0
-    fi
 }
 
 showInfoWithSocks5() {
-    showInfo   # 原来已有的主配置详细显示
+    showInfo
     # 检查是否存在 socks 协议
     socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' $CONFIG_FILE)
 
@@ -1938,16 +1933,19 @@ showInfoWithSocks5() {
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}账号密码${PLAIN}"
             echo -e "   ${BLUE}用户名:   ${PLAIN}${RED}$user${PLAIN}"
             echo -e "   ${BLUE}密码:     ${PLAIN}${RED}$pass${PLAIN}"
-            echo -e "   用法：socks5h://${user}:${pass}@${IP}:${port}"
+            echo
+            echo -e "   ${BLUE}用法：${PLAIN} ${RED}socks://${user}:${pass}@${IP}:${port}${PLAIN}"
         else
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
-            echo -e "   用法：socks5://${listen}:${port}"
+            echo
+            echo -e "   ${BLUE}用法：${PLAIN} ${RED}socks://${listen}:${port}${PLAIN}"
         fi
     fi
     # 生成二维码
     if command -v qrencode >/dev/null 2>&1; then
         echo
         echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+        echo
         echo -n "$link" | qrencode -o - -t utf8
         echo
     else
