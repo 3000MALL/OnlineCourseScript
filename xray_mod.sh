@@ -54,6 +54,9 @@ fi
 
 VLESS="false"
 TROJAN="false"
+SOCKS5="false"
+SOCKS5_USER=""
+SOCKS5_PASS=""
 TLS="false"
 WS="false"
 XTLS="false"
@@ -254,6 +257,23 @@ archAffix(){
 }
 
 getData() {
+    if [[ "$SOCKS5" == "true" ]]; then
+        echo ""
+        read -p " 请输入socks5监听端口[默认1080]：" PORT
+        [[ -z "${PORT}" ]] && PORT=1080
+        colorEcho ${BLUE}  " socks5端口：$PORT"
+        read -p " 是否设置socks5认证用户名密码？[y/n] 默认n:" answer
+        if [[ "${answer,,}" = "y" ]]; then
+            read -p " 请输入用户名:" SOCKS5_USER
+            read -p " 请输入密码:" SOCKS5_PASS
+        fi
+        echo ""
+        read -p " 是否安装BBR(默认安装)?[y/n]:" NEED_BBR
+        [[ -z "$NEED_BBR" ]] && NEED_BBR=y
+        [[ "$NEED_BBR" = "Y" ]] && NEED_BBR=y
+        colorEcho $BLUE " 安装BBR：$NEED_BBR"
+        return
+    fi
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         echo ""
         echo " Xray一键脚本，运行之前请确认如下条件已经具备：(不懂可以微信联系我：3000mall)"
@@ -795,6 +815,10 @@ setFirewall() {
             fi
         fi
     fi
+    if [[ "$SOCKS5" == "true" && "$PORT" != "" ]]; then
+        iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
+        iptables -I INPUT -p udp --dport ${PORT} -j ACCEPT
+    fi
 }
 
 installBBR() {
@@ -885,6 +909,32 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable xray.service
+}
+
+socks5Config() {
+    local auth_part=""
+    if [[ -n "$SOCKS5_USER" && -n "$SOCKS5_PASS" ]]; then
+        auth_part="\"accounts\": [{\"user\": \"$SOCKS5_USER\", \"pass\": \"$SOCKS5_PASS\"}], \"auth\": \"password\","
+    else
+        auth_part="\"auth\": \"noauth\","
+    fi
+
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "socks",
+    "settings": {
+      $auth_part
+      "udp": true
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  }]
+}
+EOF
 }
 
 trojanConfig() {
@@ -1336,6 +1386,10 @@ EOF
 
 configXray() {
     mkdir -p /usr/local/xray
+    if [[ "$SOCKS5" == "true" ]]; then
+        socks5Config
+        return 0
+    fi
     if [[ "$TROJAN" = "true" ]]; then
         if [[ "$XTLS" = "true" ]]; then
             trojanXTLSConfig
@@ -1825,16 +1879,17 @@ menu() {
     echo -e "  ${GREEN}8.${PLAIN}   安装Xray-${BLUE}VLESS+TCP+XTLS${PLAIN}${RED}(推荐)${PLAIN}"
     echo -e "  ${GREEN}9.${PLAIN}   安装${BLUE}trojan${PLAIN}${RED}(推荐)${PLAIN}"
     echo -e "  ${GREEN}10.${PLAIN}  安装${BLUE}trojan+XTLS${PLAIN}${RED}(推荐)${PLAIN}"
+    echo -e "  ${GREEN}11.${PLAIN}  安装${BLUE}socks5代理(支持UDP)${PLAIN}"
     echo " -------------"
-    echo -e "  ${GREEN}11.${PLAIN}  更新Xray"
-    echo -e "  ${GREEN}12.  ${RED}卸载Xray${PLAIN}"
+    echo -e "  ${GREEN}12.${PLAIN}  更新Xray"
+    echo -e "  ${GREEN}13.${RED}卸载Xray${PLAIN}"
     echo " -------------"
-    echo -e "  ${GREEN}13.${PLAIN}  启动Xray"
-    echo -e "  ${GREEN}14.${PLAIN}  重启Xray"
-    echo -e "  ${GREEN}15.${PLAIN}  停止Xray"
+    echo -e "  ${GREEN}14.${PLAIN}  启动Xray"
+    echo -e "  ${GREEN}15.${PLAIN}  重启Xray"
+    echo -e "  ${GREEN}16.${PLAIN}  停止Xray"
     echo " -------------"
-    echo -e "  ${GREEN}16.${PLAIN}  查看Xray配置"
-    echo -e "  ${GREEN}17.${PLAIN}  查看Xray日志"
+    echo -e "  ${GREEN}17.${PLAIN}  查看Xray配置"
+    echo -e "  ${GREEN}18.${PLAIN}  查看Xray日志"
     echo " -------------"
     echo -e "  ${GREEN}0.${PLAIN}   退出"
     echo -n " 当前状态："
@@ -1896,24 +1951,28 @@ menu() {
             install
             ;;
         11)
-            update
+            SOCKS5="true"
+            install
             ;;
         12)
-            uninstall
+            update
             ;;
         13)
-            start
+            uninstall
             ;;
         14)
-            restart
+            start
             ;;
         15)
-            stop
+            restart
             ;;
         16)
-            showInfo
+            stop
             ;;
         17)
+            showInfo
+            ;;
+        18)
             showLog
             ;;
         *)
