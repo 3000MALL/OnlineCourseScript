@@ -2,7 +2,6 @@
 # xray一键安装脚本
 # Author: 3000mall<wechat:CPLA_54J>
 
-
 RED="\033[31m"      # Error message
 GREEN="\033[32m"    # Success message
 YELLOW="\033[33m"   # Warning message
@@ -14,20 +13,15 @@ colorEcho() {
 }
 
 # 以下网站是随机从Google上找到的无广告小说网站，不喜欢请改成其他网址，以http或https开头
-# 搭建好后无法打开伪装域名，可能是反代小说网站挂了，请在网站留言，或者Github发issue，以便替换新的网站
 SITES=(
 http://www.zhuizishu.com/
 http://xs.56dyc.com/
-#http://www.xiaoshuosk.com/
-#https://www.quledu.net/
 http://www.ddxsku.com/
 http://www.biqu6.com/
 https://www.wenshulou.cc/
-#http://www.auutea.com/
 http://www.55shuba.com/
 http://www.39shubao.com/
 https://www.23xsw.cc/
-#https://www.huanbige.com/
 https://www.jueshitangmen.info/
 https://www.zhetian.org/
 http://www.bequgexs.com/
@@ -41,7 +35,7 @@ V6_PROXY=""
 IP=`curl -sL -4 ip.sb`
 if [[ "$?" != "0" ]]; then
     IP=`curl -sL -6 ip.sb`
-    V6_PROXY="https://gh.hijk.art/"
+    V6_PROXY="https://gh.3000mall.com/"
 fi
 
 BT="false"
@@ -60,6 +54,7 @@ XTLS="false"
 KCP="false"
 
 checkSystem() {
+
     # 检查root权限
     if [[ $EUID -ne 0 ]]; then
         colorEcho $RED " 请以root身份执行该脚本"
@@ -107,10 +102,6 @@ checkSystem() {
             exit 1
         fi
     fi
-}
-
-colorEcho() {
-    echo -e "${1}${@:2}${PLAIN}"
 }
 
 configNeedNginx() {
@@ -218,58 +209,15 @@ getVersion() {
 
 archAffix(){
     case "$(uname -m)" in
-        i686|i386)
-            echo '32'
-        ;;
-        x86_64|amd64)
-            echo '64'
-        ;;
-        armv5tel)
-            echo 'arm32-v5'
-        ;;
-        armv6l)
-            echo 'arm32-v6'
-        ;;
-        armv7|armv7l)
-            echo 'arm32-v7a'
-        ;;
-        armv8|aarch64)
-            echo 'arm64-v8a'
-        ;;
-        mips64le)
-            echo 'mips64le'
-        ;;
-        mips64)
-            echo 'mips64'
-        ;;
-        mipsle)
-            echo 'mips32le'
-        ;;
-        mips)
-            echo 'mips32'
-        ;;
-        ppc64le)
-            echo 'ppc64le'
-        ;;
-        ppc64)
-            echo 'ppc64'
-        ;;
-        ppc64le)
-            echo 'ppc64le'
-        ;;
-        riscv64)
-            echo 'riscv64'
-        ;;
-        s390x)
-            echo 's390x'
-        ;;
-        *)
-            colorEcho $RED " 不支持的CPU架构！"
-            exit 1
-        ;;
+        x86_64 | x64 | amd64 ) echo 'amd64' ;;
+        i*86 | x86 ) echo '386' ;;
+        armv8* | armv8 | arm64 | aarch64 ) echo 'arm64' ;;
+        armv7* | armv7 | arm ) echo 'armv7' ;;
+        armv6* | armv6 ) echo 'armv6' ;;
+        armv5* | armv5 ) echo 'armv5' ;;
+        armv5* | armv5 ) echo 's390x' ;;
+        *) echo -e "${green}不支持的CPU架构! ${plain}" && rm -f install.sh && exit 1 ;;
     esac
-
-	return 0
 }
 
 getData() {
@@ -1964,7 +1912,7 @@ showInfo() {
             echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}"
         fi
     fi
-    if [[ "$socks5" = "true" ]]; then
+    if [[ "$socks" = "true" ]]; then
         echo -e "还有一个socks"
         return 0
     fi
