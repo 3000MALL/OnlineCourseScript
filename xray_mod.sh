@@ -1468,7 +1468,6 @@ install() {
     fi
 
     installNginx
-    setFirewall
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         getCert
     fi
@@ -1490,7 +1489,7 @@ install() {
 
     setSelinux
     installBBR
-
+    setFirewall
     start
     showInfoWithSocks5
 
