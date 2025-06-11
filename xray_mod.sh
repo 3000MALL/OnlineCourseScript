@@ -559,7 +559,7 @@ getCert() {
     mkdir -p /usr/local/etc/xray
     if [[ -z ${CERT_FILE+x} ]]; then
         stopNginx
-        systemctl stop xray 2>/dev/null || true
+        systemctl stop xray
         res=`netstat -ntlp| grep -E ':80 |:443 '`
         if [[ "${res}" != "" ]]; then
             colorEcho ${RED}  " 其他进程占用了80或443端口，请先关闭再运行一键脚本"
@@ -881,7 +881,7 @@ installXray() {
         colorEcho $RED " 下载Xray文件失败，请检查服务器网络设置"
         exit 1
     fi
-    systemctl stop xray 2>/dev/null || true
+    systemctl stop xray
     mkdir -p /usr/local/etc/xray /usr/local/share/xray && \
     unzip /tmp/xray/xray.zip -d /tmp/xray
     cp /tmp/xray/xray /usr/local/bin
@@ -1531,6 +1531,10 @@ uninstall() {
 }
 
 start() {
+    if [[ ! -f $CONFIG_FILE ]] || [[ ! -f /usr/local/bin/xray ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
     res=`status`
     if [[ $res -lt 2 ]]; then
         colorEcho $RED " Xray未安装，请先安装！"
@@ -1552,12 +1556,16 @@ start() {
 
 stop() {
     stopNginx
-    systemctl stop xray 2>/dev/null || true
+    systemctl stop xray
     colorEcho $BLUE " Xray停止成功"
 }
 
 
 restart() {
+    if [[ ! -f $CONFIG_FILE ]] || [[ ! -f /usr/local/bin/xray ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
     res=`status`
     if [[ $res -lt 2 ]]; then
         colorEcho $RED " Xray未安装，请先安装！"
@@ -1939,6 +1947,10 @@ showInfo() {
 }
 
 showInfoWithSocks5() {
+    if [[ ! -f $CONFIG_FILE ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
     showInfo
     # 判断 socks 协议是否存在，填充 link2
     socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' "$CONFIG_FILE")
