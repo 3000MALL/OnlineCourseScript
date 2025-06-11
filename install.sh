@@ -1715,7 +1715,7 @@ installSocks5CheckAndInstall() {
         return 1
     fi
 
-    [[ -z "$socks_ip" ]] && socks_ip="127.0.0.1"
+    [[ -z "$socks_ip" ]] && socks_ip="0.0.0.0"
 
     echo
     echo -e " 是否开启账号密码认证？"
