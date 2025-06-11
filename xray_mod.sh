@@ -1915,30 +1915,31 @@ showInfo() {
 
 showInfoWithSocks5() {
     showInfo
-    # 检查是否存在 socks 协议
-    socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' $CONFIG_FILE)
-
+    # 判断 socks 协议是否存在，填充 link2
+    socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' "$CONFIG_FILE")
+    link2=""
     if [[ "$socks_exists" == "socks" ]]; then
-        port=$(jq -r '.inbounds[] | select(.protocol == "socks") | .port' $CONFIG_FILE)
-        listen=$(jq -r '.inbounds[] | select(.protocol == "socks") | .listen // "127.0.0.1"' $CONFIG_FILE)
-        auth=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.auth // "noauth"' $CONFIG_FILE)
-        user=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].user // empty' $CONFIG_FILE)
-        pass=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].pass // empty' $CONFIG_FILE)
-
+        port=$(jq -r '.inbounds[] | select(.protocol == "socks") | .port' "$CONFIG_FILE")
+        listen=$(jq -r '.inbounds[] | select(.protocol == "socks") | .listen // "127.0.0.1"' "$CONFIG_FILE")
+        auth=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.auth // "noauth"' "$CONFIG_FILE")
+        user=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].user // empty' "$CONFIG_FILE")
+        pass=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].pass // empty' "$CONFIG_FILE")
         echo
         colorEcho $BLUE " SOCKS5配置信息："
         echo -e "   ${BLUE}监听地址: ${PLAIN}${RED}${IP}${PLAIN}"
         echo -e "   ${BLUE}监听端口: ${PLAIN}${RED}${port}${PLAIN}"
         if [[ "$auth" == "password" && -n "$user" && -n "$pass" ]]; then
+            link2="socks://${user}:${pass}@${IP}:${port}"
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}账号密码${PLAIN}"
-            echo -e "   ${BLUE}用户名:   ${PLAIN}${RED}$user${PLAIN}"
-            echo -e "   ${BLUE}密码:     ${PLAIN}${RED}$pass${PLAIN}"
+            echo -e "   ${BLUE}用户名:   ${PLAIN}${RED}${user}${PLAIN}"
+            echo -e "   ${BLUE}密码:     ${PLAIN}${RED}${pass}${PLAIN}"
             echo
-            echo -e "   ${BLUE}用法：${PLAIN} ${RED}socks://${user}:${pass}@${IP}:${port}${PLAIN}"
+            echo -e "   ${BLUE}socks链接：${PLAIN} ${RED}${link2}${PLAIN}"
         else
+            link2="socks://${IP}:${port}"
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
             echo
-            echo -e "   ${BLUE}用法：${PLAIN} ${RED}socks://${listen}:${port}${PLAIN}"
+            echo -e "   ${BLUE}socks链接：${PLAIN}${RED}${link2}${PLAIN}"
         fi
     fi
     # 生成二维码
@@ -1948,6 +1949,13 @@ showInfoWithSocks5() {
         echo
         echo -n "$link" | qrencode -o - -t utf8
         echo
+        if [[ -n "$link2" ]]; then
+            echo
+            echo "   [SOCKS二维码]:"
+            echo
+            echo -n "$link2" | qrencode -o - -t utf8
+            echo
+        fi
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
     fi
