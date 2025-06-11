@@ -1760,20 +1760,56 @@ outputVmessKCP() {
 
 outputTrojan() {
     if [[ "$xtls" = "true" ]]; then
+        link="trojan://${password}@${domain}:${port}?flow=${flow}&encryption=none&type=${network}&security=xtls#${password}"
+        
         echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
         echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
         echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${password}${PLAIN}"
         echo -e "   ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
         echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-        echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}" 
+        echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
         echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
+        echo
+        echo -e "   ${BLUE}trojan链接:${PLAIN} $RED$link$PLAIN"
     else
+        link="trojan://$password@$domain:$port?type=$network&security=tls#$password"
         echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
         echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
         echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${password}${PLAIN}"
         echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}" 
         echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+        echo
+        echo -e "   ${BLUE}trojan链接:${PLAIN} $RED$link$PLAIN"
     fi
+}
+
+outputTrojanWS() {
+    link="trojan://${uid}@${IP}:${port}?sni=${domain}&type=${network}&host=${domain}&path=${wspath}#${uid}"
+    echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+    echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+    echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${uid}${PLAIN}"
+    echo -e "   ${BLUE}传输协议(network)：${PLAIN}${RED}${network}${PLAIN}"
+    echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
+    echo -e "   ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
+    echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+    echo
+    echo -e "   ${BLUE}trojan链接:${PLAIN} $RED$link$PLAIN"
+}
+
+outputTrojanXTLS() {
+    # 假定参数已准备好：domain, port, password, flow, network
+    # 构建 trojan 标准链接（XTLS 方案实际上推荐用于vless/trojan+xtls，但URL参数依然写法类似）
+    link="trojan://${password}@${domain}:${port}?flow=${flow}&encryption=none&type=${network}&security=xtls#${password}"
+    
+    echo -e "   ${BLUE}IP/域名(address): ${PLAIN} ${RED}${domain}${PLAIN}"
+    echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+    echo -e "   ${BLUE}密码(password)：${PLAIN}${RED}${password}${PLAIN}"
+    echo -e "   ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
+    echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
+    echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
+    echo -e "   ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
+    echo
+    echo -e "   ${BLUE}trojan链接:${PLAIN} $RED$link$PLAIN"
 }
 
 outputVmessTLS() {
@@ -1835,6 +1871,8 @@ outputVmessWS() {
     echo -e "   ${BLUE}vmess链接:${PLAIN} $RED$link$PLAIN"
 }
 
+
+
 showInfo() {
     res=`status`
     if [[ $res -lt 2 ]]; then
@@ -1869,16 +1907,22 @@ showInfo() {
         fi
     else
         if [[ "$kcp" = "true" ]]; then
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=kcp&headerType=${Type}&seed=${seed}#${remark}"
+            echo -e "   ${BLUE}VLESS+mKCP：${PLAIN}${RED}${link}${PLAIN}\n"
             echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
             echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
             echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
             echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-            echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-            echo -e "   ${BLUE}伪装类型(type)：${PLAIN} ${RED}${type}${PLAIN}"
+            echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}kcp${PLAIN}"
+            echo -e "   ${BLUE}headerType：${PLAIN} ${RED}${Type}${PLAIN}"
             echo -e "   ${BLUE}mkcp seed：${PLAIN} ${RED}${seed}${PLAIN}" 
-            return 0
+            echo -e "   ${BLUE}备注(remark)：${PLAIN} ${RED}${remark}${PLAIN}\n"
+
+            echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}" 
         fi
         if [[ "$xtls" = "true" ]]; then
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=xtls&flow=${flow}&sni=${domain}#${remark}"
+            echo -e "   ${BLUE}VLESS+XTLS：${PLAIN}${RED}${link}${PLAIN}\n"
             echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
             echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
             echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
@@ -1888,7 +1932,11 @@ showInfo() {
             echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
             echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
             echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
+
+            echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}" 
         elif [[ "$ws" = "false" ]]; then
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=tls&sni=${domain}#${remark}"
+            echo -e "   ${BLUE}VLESS+TCP+TLS：${PLAIN}${RED}${link}${PLAIN}\n"
             echo -e " ${BLUE}IP(address):  ${PLAIN}${RED}${IP}${PLAIN}"
             echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
             echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
@@ -1898,7 +1946,11 @@ showInfo() {
             echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
             echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
             echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+
+            echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}" 
         else
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=ws&security=tls&host=${domain}&path=${wspath}#${remark}"
+            echo -e "   ${BLUE}VLESS+WS+TLS：${PLAIN}${RED}${link}${PLAIN}\n"
             echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
             echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
             echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
@@ -1909,6 +1961,8 @@ showInfo() {
             echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
             echo -e " ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
             echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
+
+            echo -e "   ${BLUE}VLESS链接(link)：${PLAIN} ${RED}${link}${PLAIN}"
         fi
     fi
 }
@@ -1937,15 +1991,6 @@ showInfoWithSocks5() {
             echo -e "   用法：socks5://${listen}:${port}"
         fi
     fi
-    # 生成二维码
-    if command -v qrencode >/dev/null 2>&1; then
-        echo
-        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-        showQR
-        echo
-    else
-        echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
-    fi
 }
 
 showQR() {
@@ -1964,7 +2009,7 @@ showQR() {
     elif [[ "$VLESS" = "false" ]]; then
         # VMESS
         echo -e "${GREEN} vmess链接：${PLAIN}"
-        vmess="{\"add\":\"$DOMAIN\",\"aid\":\"$alterid\",\"host\":\"$DOMAIN\",\"id\":\"$uid\",\"net\":\"$network\",\"path\":\"/$WSPATH\",\"port\":\"$port\",\"ps\":\"$DOMAIN\",\"scy\":\"auto\",\"sni\":\"$DOMAIN\",\"tls\":\"tls\",\"type\":\"none\",\"v\":\"2\"}"
+        vmess="{\"add\":\"$DOMAIN\",\"aid\":\"$alterid\",\"host\":\"$DOMAIN\",\"id\":\"$uid\",\"net\":\"$network\",\"path\":\"$WSPATH\",\"port\":\"$port\",\"ps\":\"$DOMAIN\",\"scy\":\"auto\",\"sni\":\"$DOMAIN\",\"tls\":\"tls\",\"type\":\"none\",\"v\":\"2\"}"
         vmesslink=`echo -n $vmess | base64 -w 0`
         echo -e " vmess://${vmesslink}"
         echo ""
@@ -2115,7 +2160,15 @@ menu() {
             showLog
             ;;
         19)
-            showQR
+            # 生成二维码
+            if command -v qrencode >/dev/null 2>&1; then
+                echo
+                echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+                echo -n " ${link}" | qrencode -o - -t utf8
+                echo
+            else
+                echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
+            fi
             ;;
         *)
             colorEcho $RED " 请选择正确的操作！"
