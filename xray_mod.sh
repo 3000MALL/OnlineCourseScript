@@ -1468,6 +1468,7 @@ install() {
     fi
 
     installNginx
+    setFirewall
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         getCert
     fi
@@ -1486,10 +1487,10 @@ install() {
     fi
 
     configXray
-    installSocks5CheckAndInstall
+
     setSelinux
     installBBR
-    setFirewall
+
     start
     showInfoWithSocks5
 
@@ -1702,6 +1703,18 @@ installSocks5CheckAndInstall() {
     read -p " 请输入SOCKS5监听端口 [默认10800]：" socks_port
     [[ -z "$socks_port" ]] && socks_port=10800
 
+    # 检查端口是否已被占用
+    if ss -tuln | grep -q ":$socks_port "; then
+        colorEcho $RED " 错误：端口 $socks_port 已被其他进程占用！"
+        return 1
+    fi
+    
+    # 检查端口是否在1-65535范围内
+    if [[ $socks_port -lt 1 || $socks_port -gt 65535 ]]; then
+        colorEcho $RED " 错误：端口号必须在 1-65535 范围内！"
+        return 1
+    fi
+
     read -p " 请输入SOCKS5监听地址 [默认127.0.0.1]：" socks_ip
     [[ -z "$socks_ip" ]] && socks_ip="127.0.0.1"
 
@@ -1723,10 +1736,64 @@ installSocks5CheckAndInstall() {
         socks_user=""
         socks_pass=""
     fi
-
+    # 安装确认
+    echo
+    colorEcho $YELLOW " 即将安装SOCKS5代理服务"
+    echo -e "  监听地址: ${GREEN}${socks_ip}${PLAIN}"
+    echo -e "  监听端口: ${GREEN}${socks_port}${PLAIN}"
+    if [[ -n "$socks_user" ]]; then
+        echo -e "  认证方式: ${GREEN}账号密码${PLAIN}"
+        echo -e "  用户名:   ${GREEN}${socks_user}${PLAIN}"
+        echo -e "  密码:     ${GREEN}${socks_pass}${PLAIN}"
+    else
+        echo -e "  认证方式: ${GREEN}无认证${PLAIN}"
+    fi
+    echo
+    
+    read -p " 是否继续安装？[y/N]：" confirm
+    if [[ "${confirm,,}" != "y" ]]; then
+        colorEcho $YELLOW " 安装已取消"
+        return
+    fi
+    
     addSocks5Inbound "$socks_port" "$socks_ip" "$socks_user" "$socks_pass"
     systemctl restart xray
     sleep 2
+    colorEcho $GREEN " SOCKS5安装完成！"
+    # 防火墙配置
+    colorEcho $BLUE " 正在配置防火墙放行端口 $socks_port..."
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --permanent --add-port=$socks_port/tcp
+        firewall-cmd --permanent --add-port=$socks_port/udp
+        if [ $? -eq 0 ]; then
+            firewall-cmd --reload
+            colorEcho $GREEN " Firewalld 已放行端口 $socks_port"
+        else
+            colorEcho $RED " Firewalld 端口放行失败！请手动检查"
+        fi
+        
+    elif command -v ufw &>/dev/null; then
+        ufw allow $socks_port/tcp
+        ufw allow $socks_port/udp
+        if [ $? -eq 0 ]; then
+            colorEcho $GREEN " UFW 已放行端口 $socks_port"
+        else
+            colorEcho $RED " UFW 端口放行失败！请手动检查"
+        fi
+        
+    else
+        iptables -I INPUT -p tcp --dport $socks_port -j ACCEPT
+        iptables -I INPUT -p udp --dport $socks_port -j ACCEPT
+        if [ $? -eq 0 ]; then
+            # iptables持久化
+            colorEcho $GREEN " iptables 已临时放行端口 $socks_port"
+            colorEcho $YELLOW " 注意：iptables规则重启后会失效，请执行以下命令持久化："
+            echo -e "   ${GREEN}Debian/Ubuntu:${PLAIN} apt install iptables-persistent -y && netfilter-persistent save"
+            echo -e "   ${GREEN}CentOS/RHEL:${PLAIN} yum install iptables-services -y && service iptables save"
+        else
+            colorEcho $RED " iptables 端口放行失败！请手动检查"
+        fi
+    fi
     colorEcho $GREEN " SOCKS5安装完成！"
     showInfoWithSocks5
 }
