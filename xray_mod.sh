@@ -54,6 +54,9 @@ fi
 
 VLESS="false"
 TROJAN="false"
+SOCKS5="false"
+SOCKS5_USER=""
+SOCKS5_PASS=""
 TLS="false"
 WS="false"
 XTLS="false"
@@ -87,6 +90,15 @@ checkSystem() {
     if [[ "$?" != "0" ]]; then
         colorEcho $RED " 系统版本过低，请升级到最新版本"
         exit 1
+    fi
+    res=`which jq 2>/dev/null`
+    if [[ "$?" != "0" ]]; then
+        $CMD_INSTALL jq
+        res=`which jq 2>/dev/null`
+        if [[ "$?" != "0" ]]; then
+            colorEcho $RED " 检测或安装jq失败，请检查网络或手动安装，脚本退出"
+            exit 1
+        fi
     fi
 }
 
@@ -253,7 +265,87 @@ archAffix(){
 	return 0
 }
 
+genSocks5Inbound() {
+    if [[ -n "$SOCKS5_USER" && -n "$SOCKS5_PASS" ]]; then
+        cat <<EOF
+{
+    "port": $PORT,
+    "protocol": "socks",
+    "settings": {
+      "accounts": [{"user": "$SOCKS5_USER", "pass": "$SOCKS5_PASS"}],
+      "auth": "password",
+      "udp": true
+    }
+}
+EOF
+    else
+        cat <<EOF
+{
+    "port": $PORT,
+    "protocol": "socks",
+    "settings": {
+      "auth": "noauth",
+      "udp": true
+    }
+}
+EOF
+    fi
+}
+
+genVmessInbound() { # 参数: $1 uuid, $2 alterid
+    cat <<EOF
+{
+    "port": $PORT,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [
+        {
+          "id": "$1",
+          "alterId": $2
+        }
+      ]
+    }
+}
+EOF
+}
+
+addInboundToConfig() {
+    local inbound_json="$1"
+    if [ -f "$CONFIG_FILE" ] && jq -e . "$CONFIG_FILE" >/dev/null 2>&1; then
+        jq ".inbounds += [$inbound_json]" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+    else
+        cat > "$CONFIG_FILE" <<EOF
+{
+  "inbounds": [
+    $inbound_json
+  ],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  }]
+}
+EOF
+    fi
+}
+
 getData() {
+    if [[ "$SOCKS5" == "true" ]]; then
+        echo ""
+        read -p " 请输入socks5监听端口[默认1080]：" PORT
+        [[ -z "${PORT}" ]] && PORT=1080
+        colorEcho ${BLUE}  " socks5端口：$PORT"
+        read -p " 是否设置socks5认证用户名密码？[y/n] 默认n:" answer
+        if [[ "${answer,,}" = "y" ]]; then
+            read -p " 请输入用户名:" SOCKS5_USER
+            read -p " 请输入密码:" SOCKS5_PASS
+        fi
+        echo ""
+        read -p " 是否安装BBR(默认安装)?[y/n]:" NEED_BBR
+        [[ -z "$NEED_BBR" ]] && NEED_BBR=y
+        [[ "$NEED_BBR" = "Y" ]] && NEED_BBR=y
+        colorEcho $BLUE " 安装BBR：$NEED_BBR"
+        return
+    fi
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         echo ""
         echo " Xray一键脚本，运行之前请确认如下条件已经具备：(不懂可以微信联系我：3000mall)"
@@ -747,6 +839,15 @@ setSelinux() {
 
 setFirewall() {
     res=`which firewall-cmd 2>/dev/null`
+    # 开放所有已配置的inbounds端口
+    if [ -f "$CONFIG_FILE" ] && jq -e . "$CONFIG_FILE" >/dev/null 2>&1; then
+        mapfile -t ports < <(jq '.inbounds[].port' "$CONFIG_FILE")
+        for PORT in "${ports[@]}"; do
+            iptables -I INPUT -p tcp --dport $PORT -j ACCEPT
+            iptables -I INPUT -p udp --dport $PORT -j ACCEPT
+            # 如果你还支持firewalld/ufw，请同步这几处端口处理
+        done
+    fi
     if [[ $? -eq 0 ]]; then
         systemctl status firewalld > /dev/null 2>&1
         if [[ $? -eq 0 ]];then
@@ -794,6 +895,10 @@ setFirewall() {
                 fi
             fi
         fi
+    fi
+    if [[ "$SOCKS5" == "true" && "$PORT" != "" ]]; then
+        iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
+        iptables -I INPUT -p udp --dport ${PORT} -j ACCEPT
     fi
 }
 
@@ -885,6 +990,32 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable xray.service
+}
+
+socks5Config() {
+    local auth_part=""
+    if [[ -n "$SOCKS5_USER" && -n "$SOCKS5_PASS" ]]; then
+        auth_part="\"accounts\": [{\"user\": \"$SOCKS5_USER\", \"pass\": \"$SOCKS5_PASS\"}], \"auth\": \"password\","
+    else
+        auth_part="\"auth\": \"noauth\","
+    fi
+
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "socks",
+    "settings": {
+      $auth_part
+      "udp": true
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  }]
+}
+EOF
 }
 
 trojanConfig() {
@@ -1336,6 +1467,10 @@ EOF
 
 configXray() {
     mkdir -p /usr/local/xray
+    if [[ "$SOCKS5" == "true" ]]; then
+        socks5Config
+        return 0
+    fi
     if [[ "$TROJAN" = "true" ]]; then
         if [[ "$XTLS" = "true" ]]; then
             trojanXTLSConfig
@@ -1718,80 +1853,65 @@ outputVmessWS() {
 
 showInfo() {
     res=`status`
-    if [[ $res -lt 2 ]]; then
-        colorEcho $RED " Xray未安装，请先安装！"
-        return
-    fi
-    
+    if [[ $res -lt 2 ]]; then colorEcho $RED " Xray未安装，请先安装！"; return; fi
+
     echo ""
-    echo -n -e " ${BLUE}Xray运行状态：${PLAIN}"
-    statusText
+    echo -n -e " ${BLUE}Xray运行状态：${PLAIN}"; statusText
     echo -e " ${BLUE}Xray配置文件: ${PLAIN} ${RED}${CONFIG_FILE}${PLAIN}"
-    colorEcho $BLUE " Xray配置信息："
 
-    getConfigFileInfo
+    jq -c '.inbounds[]' "$CONFIG_FILE" | while read -r inbound; do
+        proto=$(echo "$inbound" | jq -r .protocol)
+        port=$(echo "$inbound" | jq -r .port)
 
-    echo -e "   ${BLUE}协议: ${PLAIN} ${RED}${protocol}${PLAIN}"
-    if [[ "$trojan" = "true" ]]; then
-        outputTrojan
-        return 0
-    fi
-    if [[ "$vless" = "false" ]]; then
-        if [[ "$kcp" = "true" ]]; then
-            outputVmessKCP
-            return 0
-        fi
-        if [[ "$tls" = "false" ]]; then
-            outputVmess
-        elif [[ "$ws" = "false" ]]; then
-            outputVmessTLS
-        else
-            outputVmessWS
-        fi
-    else
-        if [[ "$kcp" = "true" ]]; then
-            echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-            echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-            echo -e "   ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-            echo -e "   ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-            echo -e "   ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}"
-            echo -e "   ${BLUE}伪装类型(type)：${PLAIN} ${RED}${type}${PLAIN}"
-            echo -e "   ${BLUE}mkcp seed：${PLAIN} ${RED}${seed}${PLAIN}" 
-            return 0
-        fi
-        if [[ "$xtls" = "true" ]]; then
-            echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-            echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-            echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-            echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-            echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-            echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}" 
-            echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-            echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-            echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}XTLS${PLAIN}"
-        elif [[ "$ws" = "false" ]]; then
-            echo -e " ${BLUE}IP(address):  ${PLAIN}${RED}${IP}${PLAIN}"
-            echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-            echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-            echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-            echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-            echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}" 
-            echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-            echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-            echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
-        else
-            echo -e " ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-            echo -e " ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
-            echo -e " ${BLUE}id(uuid)：${PLAIN}${RED}${uid}${PLAIN}"
-            echo -e " ${BLUE}流控(flow)：${PLAIN}$RED$flow${PLAIN}"
-            echo -e " ${BLUE}加密(encryption)：${PLAIN} ${RED}none${PLAIN}"
-            echo -e " ${BLUE}传输协议(network)：${PLAIN} ${RED}${network}${PLAIN}" 
-            echo -e " ${BLUE}伪装类型(type)：${PLAIN}${RED}none$PLAIN"
-            echo -e " ${BLUE}伪装域名/主机名(host)/SNI/peer名称：${PLAIN}${RED}${domain}${PLAIN}"
-            echo -e " ${BLUE}路径(path)：${PLAIN}${RED}${wspath}${PLAIN}"
-            echo -e " ${BLUE}底层安全传输(tls)：${PLAIN}${RED}TLS${PLAIN}"
-        fi
-    fi
+        case "$proto" in
+            vmess)
+                uuid=$(echo "$inbound" | jq -r '.settings.clients[0].id')
+                alterId=$(echo "$inbound" | jq -r '.settings.clients[0].alterId')
+                echo -e "\n ----- ${GREEN}VMess协议信息${PLAIN} -----"
+                echo -e " ${BLUE}地址：${PLAIN} 你的服务器IP"
+                echo -e " ${BLUE}端口：${PLAIN} ${RED}${port}${PLAIN}"
+                echo -e " ${BLUE}UUID：${PLAIN} ${RED}${uuid}${PLAIN}"
+                echo -e " ${BLUE}AlterId：${PLAIN} ${RED}${alterId}${PLAIN}"
+                echo -e " ${BLUE}加密方式：${PLAIN} none"
+                echo -e " ${BLUE}传输协议：${PLAIN} tcp"
+                # 需要的话展示其它字段
+                ;;
+            vless)
+                uuid=$(echo "$inbound" | jq -r '.settings.clients[0].id')
+                echo -e "\n ----- ${GREEN}VLESS协议信息${PLAIN} -----"
+                echo -e " ${BLUE}地址：${PLAIN} 你的服务器IP"
+                echo -e " ${BLUE}端口：${PLAIN} ${RED}${port}${PLAIN}"
+                echo -e " ${BLUE}UUID：${PLAIN} ${RED}${uuid}${PLAIN}"
+                echo -e " ${BLUE}加密方式：${PLAIN} none"
+                # 需要的话加其它参数
+                ;;
+            socks)
+                auth=$(echo "$inbound" | jq -r '.settings.auth')
+                if [[ "$auth" == "noauth" ]]; then
+                  echo -e "\n ----- ${GREEN}SOCKS5协议信息${PLAIN} -----"
+                  echo -e " ${BLUE}地址：${PLAIN} 你的服务器IP"
+                  echo -e " ${BLUE}端口：${PLAIN} ${RED}${port}${PLAIN}"
+                  echo -e " ${BLUE}用户名/密码：${PLAIN} 无"
+                else
+                  user=$(echo "$inbound" | jq -r '.settings.accounts[0].user')
+                  pass=$(echo "$inbound" | jq -r '.settings.accounts[0].pass')
+                  echo -e "\n ----- ${GREEN}SOCKS5协议信息（需认证）${PLAIN} -----"
+                  echo -e " ${BLUE}地址：${PLAIN} 你的服务器IP"
+                  echo -e " ${BLUE}端口：${PLAIN} ${RED}${port}${PLAIN}"
+                  echo -e " ${BLUE}用户名：${PLAIN} ${user}"
+                  echo -e " ${BLUE}密码：${PLAIN} ${pass}"
+                fi
+                ;;
+            trojan)
+                pass=$(echo "$inbound" | jq -r '.settings.clients[0].password')
+                echo -e "\n ----- ${GREEN}Trojan协议信息${PLAIN} -----"
+                echo -e " ${BLUE}地址：${PLAIN} 你的服务器IP"
+                echo -e " ${BLUE}端口：${PLAIN} ${RED}${port}${PLAIN}"
+                echo -e " ${BLUE}密码：${PLAIN} ${pass}"
+                ;;
+        esac
+
+    done
 }
 
 showLog() {
@@ -1828,7 +1948,7 @@ menu() {
     echo -e "  ${GREEN}11.${PLAIN}  安装${BLUE}socks5代理(支持UDP)${PLAIN}"
     echo " -------------"
     echo -e "  ${GREEN}12.${PLAIN}  更新Xray"
-    echo -e "  ${GREEN}13.${RED}卸载Xray${PLAIN}"
+    echo -e "  ${GREEN}13.${RED}  卸载Xray${PLAIN}"
     echo " -------------"
     echo -e "  ${GREEN}14.${PLAIN}  启动Xray"
     echo -e "  ${GREEN}15.${PLAIN}  重启Xray"
@@ -1836,6 +1956,7 @@ menu() {
     echo " -------------"
     echo -e "  ${GREEN}17.${PLAIN}  查看Xray配置"
     echo -e "  ${GREEN}18.${PLAIN}  查看Xray日志"
+    echo -e "  ${GREEN}19.${PLAIN}  多协议共存: VMess+Socks5"
     echo " -------------"
     echo -e "  ${GREEN}0.${PLAIN}   退出"
     echo -n " 当前状态："
@@ -1920,6 +2041,33 @@ menu() {
             ;;
         18)
             showLog
+            ;;
+        19)
+            # 交互输入端口
+            while true; do
+                read -p "请输入VMess端口（100-65535）：" PORT1
+                [[ ! "$PORT1" =~ ^[1-9][0-9]{1,4}$ ]] && colorEcho $RED "端口格式不对！" && continue
+                [ "$PORT1" -lt 100 ] || [ "$PORT1" -gt 65535 ] && colorEcho $RED "端口范围不对！" && continue
+                break
+            done
+
+            while true; do
+                read -p "请输入Socks5端口（100-65535）：" PORT2
+                [[ ! "$PORT2" =~ ^[1-9][0-9]{1,4}$ ]] && colorEcho $RED "端口格式不对！" && continue
+                [ "$PORT2" -lt 100 ] || [ "$PORT2" -gt 65535 ] && colorEcho $RED "端口范围不对！" && continue
+                [ "$PORT2" == "$PORT1" ] && colorEcho $RED "不能与VMess端口相同！" && continue
+                break
+            done
+
+            UUID=$(cat /proc/sys/kernel/random/uuid)
+            rm -f "$CONFIG_FILE"
+            export PORT=$PORT1
+            genVmessInbound "$UUID" 0 | addInboundToConfig
+            export PORT=$PORT2
+            genSocks5Inbound | addInboundToConfig
+            setFirewall
+            start
+            showInfo
             ;;
         *)
             colorEcho $RED " 请选择正确的操作！"
