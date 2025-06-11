@@ -54,9 +54,6 @@ fi
 
 VLESS="false"
 TROJAN="false"
-SOCKS5="false"
-SOCKS5_USER=""
-SOCKS5_PASS=""
 TLS="false"
 WS="false"
 XTLS="false"
@@ -257,23 +254,6 @@ archAffix(){
 }
 
 getData() {
-    if [[ "$SOCKS5" == "true" ]]; then
-        echo ""
-        read -p " 请输入socks5监听端口[默认1080]：" PORT
-        [[ -z "${PORT}" ]] && PORT=1080
-        colorEcho ${BLUE}  " socks5端口：$PORT"
-        read -p " 是否设置socks5认证用户名密码？[y/n] 默认n:" answer
-        if [[ "${answer,,}" = "y" ]]; then
-            read -p " 请输入用户名:" SOCKS5_USER
-            read -p " 请输入密码:" SOCKS5_PASS
-        fi
-        echo ""
-        read -p " 是否安装BBR(默认安装)?[y/n]:" NEED_BBR
-        [[ -z "$NEED_BBR" ]] && NEED_BBR=y
-        [[ "$NEED_BBR" = "Y" ]] && NEED_BBR=y
-        colorEcho $BLUE " 安装BBR：$NEED_BBR"
-        return
-    fi
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         echo ""
         echo " Xray一键脚本，运行之前请确认如下条件已经具备：(不懂可以微信联系我：3000mall)"
@@ -815,10 +795,6 @@ setFirewall() {
             fi
         fi
     fi
-    if [[ "$SOCKS5" == "true" && "$PORT" != "" ]]; then
-        iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
-        iptables -I INPUT -p udp --dport ${PORT} -j ACCEPT
-    fi
 }
 
 installBBR() {
@@ -909,32 +885,6 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload
     systemctl enable xray.service
-}
-
-socks5Config() {
-    local auth_part=""
-    if [[ -n "$SOCKS5_USER" && -n "$SOCKS5_PASS" ]]; then
-        auth_part="\"accounts\": [{\"user\": \"$SOCKS5_USER\", \"pass\": \"$SOCKS5_PASS\"}], \"auth\": \"password\","
-    else
-        auth_part="\"auth\": \"noauth\","
-    fi
-
-    cat > $CONFIG_FILE<<-EOF
-{
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "socks",
-    "settings": {
-      $auth_part
-      "udp": true
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  }]
-}
-EOF
 }
 
 trojanConfig() {
@@ -1386,10 +1336,6 @@ EOF
 
 configXray() {
     mkdir -p /usr/local/xray
-    if [[ "$SOCKS5" == "true" ]]; then
-        socks5Config
-        return 0
-    fi
     if [[ "$TROJAN" = "true" ]]; then
         if [[ "$XTLS" = "true" ]]; then
             trojanXTLSConfig
