@@ -1432,7 +1432,6 @@ install() {
     fi
     configNginx
     configXray
-    setFirewall
 
     colorEcho $BLUE " 安装Xray..."
     getVersion
@@ -1446,11 +1445,11 @@ install() {
         installXray
     fi
 
-    configXray
+    # configXray
 
     setSelinux
     installBBR
-
+    setFirewall
     start
     showInfoWithSocks5
 
