@@ -131,25 +131,6 @@ checkSystem() {
             fi
         fi
     fi
-    # 检查并安装 ufw（添加错误处理）
-    if ! command -v ufw >/dev/null 2>&1; then
-        colorEcho $YELLOW " ufw 未安装，正在为你安装..."
-        if ! $CMD_INSTALL ufw; then
-            colorEcho $YELLOW " 标准安装失败，尝试备选方案..."
-            
-            elif [[ $PMT == "yum" ]] && grep -qi "centos" /etc/os-release; then
-                yum install -y epel-release && yum install -y ufw
-            fi
-            
-            # 最终检查
-            if ! command -v ufw >/dev/null 2>&1; then
-                colorEcho $RED " qrencode 安装失败，请手动执行以下命令："
-                colorEcho $GREEN " Ubuntu/Debian: sudo apt install -y ufw"
-                colorEcho $GREEN " CentOS/RHEL:   sudo yum install -y ufw"
-                exit 1
-            fi
-        fi
-    fi
 }
 
 configNeedNginx() {
