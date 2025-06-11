@@ -486,16 +486,17 @@ getData() {
                 PROXY_URL="https://bing.imeizi.me"
                 ;;
             5)
-            while true; do
-                read -p " 请输入反代站点(以http或者https开头)：" PROXY_URL
-                if [[ -z "$PROXY_URL" ]]; then
-                    colorEcho $RED " 请输入反代网站！"
-                elif [[ "${PROXY_URL:0:4}" != "http" ]]; then
-                    colorEcho $RED " 反代网站必须以http或https开头！"
-                else
-                    break
-                fi
-            done
+                while true; do
+                    read -p " 请输入反代站点(以http或者https开头)：" PROXY_URL
+                    if [[ -z "$PROXY_URL" ]]; then
+                        colorEcho $RED " 请输入反代网站！"
+                    elif [[ "${PROXY_URL:0:4}" != "http" ]]; then
+                        colorEcho $RED " 反代网站必须以http或https开头！"
+                    else
+                        break
+                    fi
+                done
+                ;;
             *)
                 colorEcho $RED " 请输入正确的选项！"
                 exit 1
