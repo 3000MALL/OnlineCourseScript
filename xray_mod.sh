@@ -336,8 +336,6 @@ getData() {
 	done
         DOMAIN=${DOMAIN,,}
         colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
-
-
     fi
 
     echo ""
@@ -457,9 +455,9 @@ getData() {
         echo "   3) 美女站(https://imeizi.me)"
         echo "   4) 高清壁纸站(https://bing.imeizi.me)"
         echo "   5) 自定义反代站点(需以http或者https开头)"
-        read -p "  请选择伪装网站类型[默认:高清壁纸站]" answer
+        read -p "  请选择伪装网站类型[默认:出海导航]" answer
         if [[ -z "$answer" ]]; then
-            PROXY_URL="https://bing.imeizi.me"
+            PROXY_URL="https://tkstart.com"
         else
             case $answer in
             1)
@@ -488,15 +486,16 @@ getData() {
                 PROXY_URL="https://bing.imeizi.me"
                 ;;
             5)
+            while true; do
                 read -p " 请输入反代站点(以http或者https开头)：" PROXY_URL
                 if [[ -z "$PROXY_URL" ]]; then
                     colorEcho $RED " 请输入反代网站！"
-                    exit 1
                 elif [[ "${PROXY_URL:0:4}" != "http" ]]; then
                     colorEcho $RED " 反代网站必须以http或https开头！"
-                    exit 1
+                else
+                    break
                 fi
-                ;;
+            done
             *)
                 colorEcho $RED " 请输入正确的选项！"
                 exit 1
