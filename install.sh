@@ -1715,8 +1715,7 @@ installSocks5CheckAndInstall() {
         return 1
     fi
 
-    #read -p " 请输入SOCKS5监听地址 [默认0.0.0.0]：" socks_ip
-    #[[ -z "$socks_ip" ]] && socks_ip="0.0.0.0"
+    [[ -z "$socks_ip" ]] && socks_ip="127.0.0.1"
 
     echo
     echo -e " 是否开启账号密码认证？"
