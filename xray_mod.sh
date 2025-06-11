@@ -35,7 +35,7 @@ V6_PROXY=""
 IP=`curl -sL -4 ip.sb`
 if [[ "$?" != "0" ]]; then
     IP=`curl -sL -6 ip.sb`
-    V6_PROXY="https://gh.hijk.art/"
+    V6_PROXY="https://gh.3000mall.com/"
 fi
 
 BT="false"
@@ -238,14 +238,55 @@ getVersion() {
 
 archAffix(){
     case "$(uname -m)" in
-        x86_64 | x64 | amd64 ) echo 'amd64' ;;
-        i*86 | x86 ) echo '386' ;;
-        armv8* | armv8 | arm64 | aarch64 ) echo 'arm64' ;;
-        armv7* | armv7 | arm ) echo 'armv7' ;;
-        armv6* | armv6 ) echo 'armv6' ;;
-        armv5* | armv5 ) echo 'armv5' ;;
-        armv5* | armv5 ) echo 's390x' ;;
-        *) echo -e "${green}不支持的CPU架构! ${plain}" && rm -f install.sh && exit 1 ;;
+        i686|i386)
+            echo '32'
+        ;;
+        x86_64|amd64)
+            echo '64'
+        ;;
+        armv5tel)
+            echo 'arm32-v5'
+        ;;
+        armv6l)
+            echo 'arm32-v6'
+        ;;
+        armv7|armv7l)
+            echo 'arm32-v7a'
+        ;;
+        armv8|aarch64)
+            echo 'arm64-v8a'
+        ;;
+        mips64le)
+            echo 'mips64le'
+        ;;
+        mips64)
+            echo 'mips64'
+        ;;
+        mipsle)
+            echo 'mips32le'
+        ;;
+        mips)
+            echo 'mips32'
+        ;;
+        ppc64le)
+            echo 'ppc64le'
+        ;;
+        ppc64)
+            echo 'ppc64'
+        ;;
+        ppc64le)
+            echo 'ppc64le'
+        ;;
+        riscv64)
+            echo 'riscv64'
+        ;;
+        s390x)
+            echo 's390x'
+        ;;
+        *)
+            colorEcho $RED " 不支持的CPU架构！"
+            exit 1
+        ;;
     esac
 }
 
