@@ -2006,6 +2006,7 @@ menu() {
     echo " -------------"
     echo -e "  ${GREEN}17.${PLAIN}  查看Xray配置"
     echo -e "  ${GREEN}18.${PLAIN}  查看Xray日志"
+    echo -e "  ${GREEN}19.${PLAIN}  查看当前配置二维码"
     echo " -------------"
     echo -e "  ${GREEN}0.${PLAIN}   退出"
     echo -n " 当前状态："
