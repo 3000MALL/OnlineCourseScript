@@ -1925,6 +1925,45 @@ showInfoWithSocks5() {
     fi
 }
 
+showQR() {
+    res=`status`
+    if [[ $res -lt 2 ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
+
+    if [[ "$TROJAN" = "true" ]]; then
+        echo -e "${GREEN} trojan链接：${PLAIN}"
+        echo -e " trojan://${PASSWORD}@${DOMAIN}:${port}?security=tls&sni=${DOMAIN}#${DOMAIN}"
+        echo ""
+        echo -e " trojan二维码："
+        echo -n " trojan://${PASSWORD}@${DOMAIN}:${port}?security=tls&sni=${DOMAIN}#${DOMAIN}" | qrencode -o - -t utf8
+    elif [[ "$VLESS" = "false" ]]; then
+        # VMESS
+        echo -e "${GREEN} vmess链接：${PLAIN}"
+        vmess="{\"add\":\"$DOMAIN\",\"aid\":\"$alterid\",\"host\":\"$DOMAIN\",\"id\":\"$uid\",\"net\":\"$network\",\"path\":\"/$WSPATH\",\"port\":\"$port\",\"ps\":\"$DOMAIN\",\"scy\":\"auto\",\"sni\":\"$DOMAIN\",\"tls\":\"tls\",\"type\":\"none\",\"v\":\"2\"}"
+        vmesslink=`echo -n $vmess | base64 -w 0`
+        echo -e " vmess://${vmesslink}"
+        echo ""
+        echo -e " vmess二维码："
+        echo -n " vmess://${vmesslink}" | qrencode -o - -t utf8
+    else
+        # VLESS
+        echo -e "${GREEN} vless链接：${PLAIN}"
+        if [[ "$XTLS" = "true" ]]; then
+            echo -e " vless://${uid}@${DOMAIN}:${port}?security=xtls&flow=${FLOW}&sni=${DOMAIN}#${DOMAIN}"
+            echo ""
+            echo -e " vless二维码："
+            echo -n " vless://${uid}@${DOMAIN}:${port}?security=xtls&flow=${FLOW}&sni=${DOMAIN}#${DOMAIN}" | qrencode -o - -t utf8
+        else
+            echo -e " vless://${uid}@${DOMAIN}:${port}?security=tls&sni=${DOMAIN}#${DOMAIN}"
+            echo ""
+            echo -e " vless二维码："
+            echo -n " vless://${uid}@${DOMAIN}:${port}?security=tls&sni=${DOMAIN}#${DOMAIN}" | qrencode -o - -t utf8
+        fi
+    fi
+}
+
 showLog() {
     res=`status`
     if [[ $res -lt 2 ]]; then
@@ -2051,6 +2090,9 @@ menu() {
         18)
             showLog
             ;;
+        19)
+            showQR
+            ;;
         *)
             colorEcho $RED " 请选择正确的操作！"
             exit 1
@@ -2063,7 +2105,7 @@ checkSystem
 action=$1
 [[ -z $1 ]] && action=menu
 case "$action" in
-    menu|update|uninstall|start|restart|stop|showInfo|showLog)
+    menu|update|uninstall|start|restart|stop|showInfo|showLog|showQR)
         ${action}
         ;;
     *)
