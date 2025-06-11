@@ -2036,16 +2036,15 @@ menu() {
     echo -e "  ${GREEN}15.${PLAIN}  重启Xray"
     echo -e "  ${GREEN}16.${PLAIN}  停止Xray"
     echo " -------------"
-    echo -e "  ${GREEN}17.${PLAIN}  查看Xray配置"
+    echo -e "  ${GREEN}17.${PLAIN}  查看Xray配置及二维码"
     echo -e "  ${GREEN}18.${PLAIN}  查看Xray日志"
-    echo -e "  ${GREEN}19.${PLAIN}  查看当前配置二维码"
     echo " -------------"
     echo -e "  ${GREEN}0.${PLAIN}   退出"
     echo -n " 当前状态："
     statusText
     echo 
 
-    read -p " 请选择操作[0-17]：" answer
+    read -p " 请选择操作[0-18]：" answer
     case $answer in
         0)
             exit 0
@@ -2122,9 +2121,6 @@ menu() {
             ;;
         18)
             showLog
-            ;;
-        19)
-            showQR
             ;;
         *)
             colorEcho $RED " 请选择正确的操作！"
