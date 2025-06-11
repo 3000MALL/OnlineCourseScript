@@ -288,52 +288,46 @@ getData() {
         echo ""
 	
 	# 授权域名列表
-    ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
-    IP=$(curl -s ifconfig.me)
-
-    while true; do
-        read -p " 请输入伪装域名：" DOMAIN
+	ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
+	while true
+	do
+	    read -p " 请输入伪装域名：" DOMAIN
+	    DOMAIN=$(echo "$DOMAIN" | tr '[:upper:]' '[:lower:]')  # 转换为小写
+	    DOMAIN="${DOMAIN%.}"  # 去除末尾可能的点
+	    if [[ -z "${DOMAIN}" ]]; then
+	        colorEcho ${RED} " 域名不能为空，请重新输入！"
+	    else
+	        valid=0
+	        for allowed in "${ALLOWED_DOMAINS[@]}"; do
+	            if [[ "$DOMAIN" == "$allowed" || "$DOMAIN" =~ \."$allowed"$ ]]; then
+	                valid=1
+	                break
+	            fi
+	        done
+	        if [[ $valid -eq 1 ]]; then
+	            break
+	        else
+	            colorEcho ${RED} " 当前域名未授权使用，请微信联系3000mall！"
+	        fi
+	    fi
+	done
         DOMAIN=${DOMAIN,,}
-        DOMAIN="${DOMAIN%.}"
-        if [[ -z "${DOMAIN}" ]]; then
-            colorEcho ${RED} " 域名不能为空，请重新输入！"
-            continue
-        fi
+        colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
 
-        # 校验是否授权域名
-        valid=0
-        for allowed in "${ALLOWED_DOMAINS[@]}"; do
-            if [[ "$DOMAIN" == "$allowed" || "$DOMAIN" =~ \."$allowed"$ ]]; then
-                valid=1
-                break
-            fi
-        done
-        if [[ $valid -ne 1 ]]; then
-            colorEcho ${RED} " 当前域名未授权使用，请微信联系3000mall！"
-            continue
-        fi
-
-        # 域名解析校验，存在证书则无需检查IP
-        if [[ ! -f ~/xray.pem || ! -f ~/xray.key ]]; then
-            resolve=$(curl -sL http://ip-api.com/json/${DOMAIN})
-            domain_ip=$(echo "${resolve}" | grep -oP '(?<="query":")[^"]*')
-            if [[ "${domain_ip}" != "${IP}" ]]; then
+        echo ""
+        if [[ -f ~/xray.pem && -f ~/xray.key ]]; then
+            colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
+            CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
+            KEY_FILE="/usr/local/etc/xray/${DOMAIN}.key"
+        else
+            resolve=`curl -sL http://ip-api.com/json/${DOMAIN}`
+            res=`echo -n ${resolve} | grep ${IP}`
+            if [[ -z "${res}" ]]; then
                 colorEcho ${BLUE}  "${DOMAIN} 解析结果：${resolve}"
-                colorEcho ${RED}  " 域名未解析到当前服务器IP(${IP})，请检查域名解析。"
-                continue
+                colorEcho ${RED}  " 域名未解析到当前服务器IP(${IP})!"
+                exit 1
             fi
         fi
-
-        # 所有校验通过
-        break
-    done
-
-    colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
-
-    if [[ -f ~/xray.pem && -f ~/xray.key ]]; then
-        colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
-        CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
-        KEY_FILE="/usr/local/etc/xray/${DOMAIN}.key"
     fi
 
     echo ""
