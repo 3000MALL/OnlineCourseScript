@@ -1969,23 +1969,25 @@ showInfo() {
 
 showInfoWithSocks5() {
     showInfo   # 原来已有的主配置详细显示
-    socks5_blocks=$(awk '/"protocol": "socks"/,/\}/' $CONFIG_FILE)
-    if [[ ! -z "$socks5_blocks" ]]; then
+    # 检查是否存在 socks 协议
+    socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' $CONFIG_FILE)
+
+    if [[ "$socks_exists" == "socks" ]]; then
+        port=$(jq -r '.inbounds[] | select(.protocol == "socks") | .port' $CONFIG_FILE)
+        listen=$(jq -r '.inbounds[] | select(.protocol == "socks") | .listen // "127.0.0.1"' $CONFIG_FILE)
+        auth=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.auth // "noauth"' $CONFIG_FILE)
+        user=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].user // empty' $CONFIG_FILE)
+        pass=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].pass // empty' $CONFIG_FILE)
+
         echo
         colorEcho $BLUE " SOCKS5配置信息："
-        port=$(echo "$socks5_blocks" | grep port | head -n1 | awk -F: '{print $2}'|tr -d ', ')
-        listen=$(echo "$socks5_blocks" | grep listen | head -n1 | awk -F: '{print $2}'|tr -d '", ')
-        user=$(echo "$socks5_blocks" | grep user | head -n1 | awk -F: '{print $2}'|tr -d '", ')
-        pass=$(echo "$socks5_blocks" | grep pass | head -n1 | awk -F: '{print $2}'|tr -d '", ')
-        auth=$(echo "$socks5_blocks" | grep auth | head -n1 | awk -F: '{print $2}'|tr -d '", ')
-        [[ -z "$listen" ]] && listen="127.0.0.1"
-        echo -e "   ${BLUE}监听地址: ${PLAIN}${RED}${listen}${PLAIN}"
+        echo -e "   ${BLUE}监听地址: ${PLAIN}${RED}${IP}${PLAIN}"
         echo -e "   ${BLUE}监听端口: ${PLAIN}${RED}${port}${PLAIN}"
         if [[ "$auth" == "password" && -n "$user" && -n "$pass" ]]; then
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}账号密码${PLAIN}"
             echo -e "   ${BLUE}用户名:   ${PLAIN}${RED}$user${PLAIN}"
             echo -e "   ${BLUE}密码:     ${PLAIN}${RED}$pass${PLAIN}"
-            echo -e "   用法：socks5h://${user}:${pass}@${listen}:${port}"
+            echo -e "   用法：socks5h://${user}:${pass}@${IP}:${port}"
         else
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
             echo -e "   用法：socks5://${listen}:${port}"
@@ -1995,7 +1997,7 @@ showInfoWithSocks5() {
     if command -v qrencode >/dev/null 2>&1; then
         echo
         echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-        echo -n "$link" | qrencode -o - -t utf8
+        echo -n "   $link" | qrencode -o - -t utf8
         echo
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
