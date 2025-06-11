@@ -60,33 +60,42 @@ XTLS="false"
 KCP="false"
 
 checkSystem() {
-    result=$(id | awk '{print $1}')
-    if [[ $result != "uid=0(root)" ]]; then
+    # 检查root权限
+    if [[ $EUID -ne 0 ]]; then
         colorEcho $RED " 请以root身份执行该脚本"
         exit 1
     fi
 
-    res=`which yum 2>/dev/null`
-    if [[ "$?" != "0" ]]; then
-        res=`which apt 2>/dev/null`
-        if [[ "$?" != "0" ]]; then
-            colorEcho $RED " 不受支持的Linux系统"
-            exit 1
-        fi
-        PMT="apt"
-        CMD_INSTALL="apt install -y "
-        CMD_REMOVE="apt remove -y "
-        CMD_UPGRADE="apt update; apt upgrade -y; apt autoremove -y"
-    else
+    # 检查包管理器，并设置命令
+    if command -v yum >/dev/null 2>&1; then
         PMT="yum"
         CMD_INSTALL="yum install -y "
         CMD_REMOVE="yum remove -y "
         CMD_UPGRADE="yum update -y"
-    fi
-    res=`which systemctl 2>/dev/null`
-    if [[ "$?" != "0" ]]; then
-        colorEcho $RED " 系统版本过低，请升级到最新版本"
+    elif command -v apt >/dev/null 2>&1; then
+        PMT="apt"
+        CMD_INSTALL="apt install -y "
+        CMD_REMOVE="apt remove -y "
+        CMD_UPGRADE="apt update && apt upgrade -y && apt autoremove -y"
+    else
+        colorEcho $RED " 不受支持的Linux系统 (仅支持基于 Yum 或 Apt 的系统)"
         exit 1
+    fi
+
+    # 检查 systemctl
+    if ! command -v systemctl >/dev/null 2>&1; then
+        colorEcho $RED " 系统版本过低或未安装 systemd，请升级到最新版本"
+        exit 1
+    fi
+
+    # 检查并安装 qrencode
+    if ! command -v qrencode >/dev/null 2>&1; then
+        colorEcho $YELLOW " qrencode 未安装，正在为你安装..."
+        $CMD_INSTALL qrencode
+        if ! command -v qrencode >/dev/null 2>&1; then
+            colorEcho $RED " qrencode 安装失败，请手动安装后再运行脚本。"
+            exit 1
+        fi
     fi
 }
 
@@ -1921,6 +1930,15 @@ showInfoWithSocks5() {
         else
             echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
             echo -e "   用法：socks5://${listen}:${port}"
+        fi
+        # 生成二维码
+        if command -v qrencode >/dev/null 2>&1; then
+            echo
+            echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+            qrencode -o - -t ANSIUTF8 "$socks_link"
+            echo
+        else
+            echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
         fi
     fi
 }
