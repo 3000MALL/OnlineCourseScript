@@ -97,6 +97,16 @@ checkSystem() {
             exit 1
         fi
     fi
+
+    # 检查并安装 jq
+    if ! command -v jq >/dev/null 2>&1; then
+        colorEcho $YELLOW " jq 未安装，正在为你安装..."
+        $CMD_INSTALL jq
+        if ! command -v jq >/dev/null 2>&1; then
+            colorEcho $RED " jq 安装失败！请手动安装后重试。"
+            exit 1
+        fi
+    fi
 }
 
 colorEcho() {
@@ -1433,7 +1443,7 @@ install() {
     installBBR
 
     start
-    showInfo
+    showInfoWithSocks5
 
     bbrReboot
 }
@@ -1673,46 +1683,10 @@ addSocks5Inbound() {
     local pass="$4"
 
     if [[ -n "$user" && -n "$pass" ]]; then
-        cat > /tmp/socks5_inbound_block <<EOF
-,
-    {
-        "port": $port,
-        "listen": "$addr",
-        "protocol": "socks",
-        "settings": {
-            "auth": "password",
-            "accounts": [
-                {
-                    "user": "$user",
-                    "pass": "$pass"
-                }
-            ],
-            "udp": true
-        }
-    }
-EOF
+        jq '.inbounds += [{"port": '"$port"',"listen": "'"$addr"'","protocol": "socks","settings": {"auth": "password","accounts": [{"user": "'"$user"'","pass": "'"$pass"'"}], "udp": true}}]' "$CONFIG_FILE" > /tmp/xray_config_new && mv /tmp/xray_config_new "$CONFIG_FILE"
     else
-        cat > /tmp/socks5_inbound_block <<EOF
-,
-    {
-        "port": $port,
-        "listen": "$addr",
-        "protocol": "socks",
-        "settings": {
-            "auth": "noauth",
-            "udp": true
-        }
-    }
-EOF
+        jq '.inbounds += [{"port": '"$port"',"listen": "'"$addr"'","protocol": "socks","settings": {"auth": "noauth", "udp": true}}]' "$CONFIG_FILE" > /tmp/xray_config_new && mv /tmp/xray_config_new "$CONFIG_FILE"
     fi
-
-    # 自动插入到 inbounds 索引的最后 ] 前面
-    tmpcf=/tmp/xray_config_new
-    awk '
-        /"inbounds"[ ]*:[ ]*\[/ {print; next}
-        /^\s*\]/ && !added {while ((getline line < "/tmp/socks5_inbound_block") > 0) print line; print; added=1; next}
-        {print}
-    ' "$CONFIG_FILE" > "$tmpcf" && mv "$tmpcf" "$CONFIG_FILE"
 }
 
 outputVmess() {
