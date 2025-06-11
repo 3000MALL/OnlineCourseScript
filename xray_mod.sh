@@ -1,7 +1,7 @@
 #!/bin/bash
 # xray一键安装脚本
 # Author: 3000mall<wechat:CPLA_54J>
-
+set -euo pipefail
 
 RED="\033[31m"      # Error message
 GREEN="\033[32m"    # Success message
@@ -52,12 +52,14 @@ if [[ "$res" != "" ]]; then
     NGINX_CONF_PATH="/www/server/panel/vhost/nginx/"
 fi
 
-VLESS="false"
-TROJAN="false"
-TLS="false"
-WS="false"
-XTLS="false"
-KCP="false"
+resetFlags() {
+    VLESS="false"
+    TROJAN="false"
+    TLS="false"
+    WS="false"
+    XTLS="false"
+    KCP="false"
+}
 
 checkSystem() {
     # 检查root权限
@@ -199,7 +201,7 @@ normalizeVersion() {
 
 # 1: new Xray. 0: no. 1: yes. 2: not installed. 3: check failed.
 getVersion() {
-    VER=`/usr/local/bin/xray version|head -n1 | awk '{print $2}'`
+    VER=$(/usr/local/bin/xray version 2>/dev/null | head -n1 | awk '{print $2}')
     RETVAL=$?
     CUR_VER="$(normalizeVersion "$(echo "$VER" | head -n 1 | cut -d " " -f2)")"
     TAG_URL="${V6_PROXY}https://api.github.com/repos/XTLS/Xray-core/releases/latest"
@@ -218,58 +220,21 @@ getVersion() {
 
 archAffix(){
     case "$(uname -m)" in
-        i686|i386)
-            echo '32'
-        ;;
-        x86_64|amd64)
-            echo '64'
-        ;;
-        armv5tel)
-            echo 'arm32-v5'
-        ;;
-        armv6l)
-            echo 'arm32-v6'
-        ;;
-        armv7|armv7l)
-            echo 'arm32-v7a'
-        ;;
-        armv8|aarch64)
-            echo 'arm64-v8a'
-        ;;
-        mips64le)
-            echo 'mips64le'
-        ;;
-        mips64)
-            echo 'mips64'
-        ;;
-        mipsle)
-            echo 'mips32le'
-        ;;
-        mips)
-            echo 'mips32'
-        ;;
-        ppc64le)
-            echo 'ppc64le'
-        ;;
-        ppc64)
-            echo 'ppc64'
-        ;;
-        ppc64le)
-            echo 'ppc64le'
-        ;;
-        riscv64)
-            echo 'riscv64'
-        ;;
-        s390x)
-            echo 's390x'
-        ;;
-        *)
-            colorEcho $RED " 不支持的CPU架构！"
-            exit 1
-        ;;
+        i686|i386)       echo '32' ;;
+        x86_64|amd64)    echo '64' ;;
+        armv5*|armv6l|armv7l) echo 'arm32-v7a' ;;
+        aarch64|armv8*)  echo 'arm64-v8a' ;;
+        mips64le)        echo 'mips64le' ;;
+        mips64)          echo 'mips64' ;;
+        mipsle)          echo 'mips32le' ;;
+        mips)            echo 'mips32' ;;
+        ppc64le)         echo 'ppc64le' ;;
+        ppc64)           echo 'ppc64' ;;
+        riscv64)         echo 'riscv64' ;;
+        s390x)           echo 's390x' ;;
+        *) colorEcho $RED " 不支持的CPU架构！"; exit 1 ;;
     esac
-
-	return 0
+    return 0
 }
 
 getData() {
@@ -2087,15 +2052,18 @@ menu() {
             exit 0
             ;;
         1)
+            resetFlags
             TLS="true"
             WS="true"
             install
             ;;
         2)
+            resetFlags
             KCP="true"
             install
             ;;
         3)
+            resetFlags
             TLS="true"
             install
             ;;
@@ -2103,33 +2071,39 @@ menu() {
             install
             ;;
         5)
+            resetFlags
             VLESS="true"
             KCP="true"
             install
             ;;
         6)
+            resetFlags
             VLESS="true"
             TLS="true"
             install
             ;;
         7)
+            resetFlags
             VLESS="true"
             TLS="true"
             WS="true"
             install
             ;;
         8)
+            resetFlags
             VLESS="true"
             TLS="true"
             XTLS="true"
             install
             ;;
         9)
+            resetFlags
             TROJAN="true"
             TLS="true"
             install
             ;;
         10)
+            resetFlags
             TROJAN="true"
             TLS="true"
             XTLS="true"
