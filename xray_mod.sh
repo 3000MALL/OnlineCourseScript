@@ -290,6 +290,7 @@ getData() {
 	# 授权域名列表
     ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
     IP=$(curl -s ifconfig.me)
+
     while true; do
         read -p " 请输入伪装域名：" DOMAIN
         DOMAIN=${DOMAIN,,}
@@ -298,6 +299,7 @@ getData() {
             colorEcho ${RED} " 域名不能为空，请重新输入！"
             continue
         fi
+
         # 校验是否授权域名
         valid=0
         for allowed in "${ALLOWED_DOMAINS[@]}"; do
@@ -310,6 +312,7 @@ getData() {
             colorEcho ${RED} " 当前域名未授权使用，请微信联系3000mall！"
             continue
         fi
+
         # 域名解析校验，存在证书则无需检查IP
         if [[ ! -f ~/xray.pem || ! -f ~/xray.key ]]; then
             resolve=$(curl -sL http://ip-api.com/json/${DOMAIN})
@@ -320,10 +323,13 @@ getData() {
                 continue
             fi
         fi
+
         # 所有校验通过
         break
     done
+
     colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
+
     if [[ -f ~/xray.pem && -f ~/xray.key ]]; then
         colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
         CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
