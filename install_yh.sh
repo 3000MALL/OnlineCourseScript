@@ -209,6 +209,101 @@ archAffix() {
     esac
 }
 
+# 安装Xray核心
+installXrayCore() {
+    rm -rf /tmp/xray
+    mkdir -p /tmp/xray
+    
+    # 下载Xray
+    local arch=$(archAffix)
+    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-${arch}.zip"
+    colorEcho $BLUE "下载Xray: ${DOWNLOAD_LINK}"
+    
+    if ! curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip "$DOWNLOAD_LINK"; then
+        colorEcho $RED "下载Xray文件失败，请检查服务器网络设置"
+        return 1
+    fi
+
+    # 解压安装
+    unzip /tmp/xray/xray.zip -d /tmp/xray || {
+        colorEcho $RED "解压Xray文件失败"
+        return 1
+    }
+    
+    systemctl stop xray 2>/dev/null
+    mkdir -p /usr/local/etc/xray /usr/local/share/xray
+    cp /tmp/xray/xray /usr/local/bin
+    cp /tmp/xray/geo* /usr/local/share/xray
+    chmod +x /usr/local/bin/xray || {
+        colorEcho $RED "Xray安装失败"
+        return 1
+    }
+
+    return 0
+}
+
+# 安装主流程
+install() {
+    getData
+    $PMT clean all
+    [[ "$PMT" = "apt" ]] && $PMT update
+    
+    # 安装基础工具
+    if ! $CMD_INSTALL wget vim unzip tar gcc openssl net-tools; then
+        colorEcho $RED "基础工具安装失败"
+        return 1
+    fi
+    
+    # 安装Nginx
+    installNginx || return 1
+    
+    # 配置防火墙
+    setFirewall
+    
+    # 获取证书
+    if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
+        getCert || return 1
+    fi
+    
+    # 配置Nginx
+    configNginx
+    
+    # 安装Xray
+    colorEcho $BLUE "安装Xray..."
+    getVersion
+    local retval=$?
+    
+    if [[ $retval -eq 0 ]]; then
+        colorEcho $BLUE "Xray最新版 ${CUR_VER} 已经安装"
+    elif [[ $retval -eq 1 ]]; then
+        colorEcho $BLUE "安装Xray ${NEW_VER} ，架构: $(archAffix)"
+        installXrayCore || return 1
+        createXrayService
+    else
+        return 1
+    fi
+    
+    # 生成配置
+    configXray
+    
+    # 设置SELinux
+    setSelinux
+    
+    # 安装BBR
+    installBBR
+    
+    # 启动服务
+    start
+    
+    # 显示配置信息
+    showInfoWithSocks5
+    
+    # 需要重启提示
+    bbrReboot
+    
+    return 0
+}
+
 # 用户输入处理
 getData() {
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
@@ -823,39 +918,6 @@ installBBR() {
     fi
 }
 
-# 安装Xray核心
-installXrayCore() {
-    rm -rf /tmp/xray
-    mkdir -p /tmp/xray
-    
-    # 下载Xray
-    local arch=$(archAffix)
-    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-${arch}.zip"
-    colorEcho $BLUE "下载Xray: ${DOWNLOAD_LINK}"
-    
-    if ! curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip "$DOWNLOAD_LINK"; then
-        colorEcho $RED "下载Xray文件失败，请检查服务器网络设置"
-        return 1
-    fi
-
-    # 解压安装
-    unzip /tmp/xray/xray.zip -d /tmp/xray || {
-        colorEcho $RED "解压Xray文件失败"
-        return 1
-    }
-    
-    systemctl stop xray 2>/dev/null
-    mkdir -p /usr/local/etc/xray /usr/local/share/xray
-    cp /tmp/xray/xray /usr/local/bin
-    cp /tmp/xray/geo* /usr/local/share/xray
-    chmod +x /usr/local/bin/xray || {
-        colorEcho $RED "Xray安装失败"
-        return 1
-    }
-
-    return 0
-}
-
 # 创建Xray服务
 createXrayService() {
     cat > /etc/systemd/system/xray.service <<'EOF'
@@ -1017,68 +1079,6 @@ generateVmessConfig() {
   }]
 }
 EOF
-}
-
-# 安装主流程
-install() {
-    getData
-    $PMT clean all
-    [[ "$PMT" = "apt" ]] && $PMT update
-    
-    # 安装基础工具
-    if ! $CMD_INSTALL wget vim unzip tar gcc openssl net-tools; then
-        colorEcho $RED "基础工具安装失败"
-        return 1
-    fi
-    
-    # 安装Nginx
-    installNginx || return 1
-    
-    # 配置防火墙
-    setFirewall
-    
-    # 获取证书
-    if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
-        getCert || return 1
-    fi
-    
-    # 配置Nginx
-    configNginx
-    
-    # 安装Xray
-    colorEcho $BLUE "安装Xray..."
-    getVersion
-    local retval=$?
-    
-    if [[ $retval -eq 0 ]]; then
-        colorEcho $BLUE "Xray最新版 ${CUR_VER} 已经安装"
-    elif [[ $retval -eq 1 ]]; then
-        colorEcho $BLUE "安装Xray ${NEW_VER} ，架构: $(archAffix)"
-        installXrayCore || return 1
-        createXrayService
-    else
-        return 1
-    fi
-    
-    # 生成配置
-    configXray
-    
-    # 设置SELinux
-    setSelinux
-    
-    # 安装BBR
-    installBBR
-    
-    # 启动服务
-    start
-    
-    # 显示配置信息
-    showInfoWithSocks5
-    
-    # 需要重启提示
-    bbrReboot
-    
-    return 0
 }
 
 # BBR重启提示
