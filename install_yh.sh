@@ -120,14 +120,21 @@ getData() {
     }
     
     [[ "$TLS" = "true" || "$XTLS" = "true" ]] && {
-        echo -e "${BLUE}伪装网站: 1)静态页 2)小说站 3)美女站"
+        echo -e "${BLUE}伪装网站: 1)静态页 2)小说站 3)美女站 4)壁纸站 5)自定义"
         read -p "[1]: " answer
         case ${answer:-1} in
-            2) PROXY_URL=${SITES[$(shuf -i0-$((${#SITES[@]}-1)) -n1]};;
+            2) 
+                random_index=$((RANDOM % ${#SITES[@]}))
+                PROXY_URL=${SITES[$random_index]}
+                ;;
             3) PROXY_URL="https://imeizi.me";;
             4) PROXY_URL="https://bing.imeizi.me";;
-            5) read -p "输入反代URL: " PROXY_URL;;
-            *) PROXY_URL="";;
+            5) 
+                read -p "输入反代URL: " PROXY_URL
+                ;;
+            *) 
+                PROXY_URL=""
+                ;;
         esac
         REMOTE_HOST=$(echo "$PROXY_URL" | cut -d/ -f3)
         colorEcho $BLUE "伪装站: ${PROXY_URL:-静态页}"
@@ -369,7 +376,7 @@ menu() {
     clear
     echo "========================================"
     echo -e "  ${RED}Xray 一键安装脚本${PLAIN}"
-    echo -e "  ${GREEN}1.${PLAIN} 安装 VMESS+WS+TLS (推荐)"
+    echo -e "  ${GREEN}1.AIN} 安装 VMESS+WS+TLS (推荐)"
     echo -e "  ${GREEN}2.${PLAIN} 安装 VMESS+mKCP"
     echo -e "  ${GREEN}3.${PLAIN} 安装 VLESS+WS+TLS"
     echo -e "  ${GREEN}4.${PLAIN} 安装 VLESS+XTLS (推荐)"
