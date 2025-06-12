@@ -1,5 +1,5 @@
 #!/bin/bash
-# Xray 一键安装脚本 (精简优化版)
+# Xray 一键安装脚本
 # Author: 3000mall<wechat:CPLA_54J>
 
 RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"; BLUE="\033[36m"; PLAIN='\033[0m'
