@@ -1,0 +1,411 @@
+#!/bin/bash
+# Xray 一键安装脚本 (精简优化版)
+# Author: 3000mall<wechat:CPLA_54J>
+
+RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"; BLUE="\033[36m"; PLAIN='\033[0m'
+SITES=("http://www.zhuizishu.com/" "http://xs.56dyc.com/" "http://www.ddxsku.com/" "http://www.biqu6.com/" "https://www.wenshulou.cc/")
+CONFIG_FILE="/usr/local/etc/xray/config.json"
+NGINX_CONF_PATH="/etc/nginx/conf.d/"; V6_PROXY=""; BT="false"
+VLESS="false"; TROJAN="false"; TLS="false"; WS="false"; XTLS="false"; KCP="false"
+
+colorEcho() { echo -e "${1}${@:2}${PLAIN}"; }
+
+checkSystem() {
+    [[ $EUID -ne 0 ]] && colorEcho $RED "请以root身份执行该脚本" && exit 1
+    command -v yum &>/dev/null && PMT="yum" || command -v apt &>/dev/null && PMT="apt" || { colorEcho $RED "不支持的系统"; exit 1; }
+    command -v systemctl &>/dev/null || { colorEcho $RED "需要systemd支持"; exit 1; }
+    
+    [[ $PMT == "yum" ]] && yum makecache fast -y || apt update -y
+    for tool in qrencode jq; do
+        command -v $tool &>/dev/null || $CMD_INSTALL $tool || {
+            colorEcho $RED "$tool 安装失败"; exit 1
+        }
+    done
+}
+
+getPublicIP() {
+    IP=$(curl -sL -4 ip.sb || curl -sL -6 ip.sb)
+    [[ -z "$IP" ]] && { colorEcho $RED "获取IP失败"; exit 1; }
+    [[ $IP == *:* ]] && V6_PROXY="https://gh.3000mall.com/"
+}
+
+detectBT() {
+    [[ -n $(which bt 2>/dev/null) ]] && BT="true" && NGINX_CONF_PATH="/www/server/panel/vhost/nginx/"
+}
+
+status() {
+    [[ ! -f /usr/local/bin/xray ]] && echo 0 && return
+    [[ ! -f $CONFIG_FILE ]] && echo 1 && return
+    port=$(grep port $CONFIG_FILE | head -n1 | cut -d: -f2 | tr -d \",' ')
+    [[ -z $port ]] && echo 1 && return
+    ss -nutlp | grep -q ":${port} .*xray" || { echo 2; return; }
+    [[ $(grep -q wsSettings $CONFIG_FILE && echo yes) != "yes" ]] && echo 3 && return
+    ss -nutlp | grep -qi nginx && echo 5 || echo 4
+}
+
+statusText() {
+    case $(status) in
+        2) echo -e "${GREEN}已安装${PLAIN} ${RED}未运行${PLAIN}" ;;
+        3) echo -e "${GREEN}已安装${PLAIN} ${GREEN}运行中${PLAIN}" ;;
+        4) echo -e "${GREEN}已安装${PLAIN} ${GREEN}Xray运行${PLAIN}, ${RED}Nginx停止${PLAIN}" ;;
+        5) echo -e "${GREEN}已安装${PLAIN} ${GREEN}Xray+Nginx运行${PLAIN}" ;;
+        *) echo -e "${RED}未安装${PLAIN}" ;;
+    esac
+}
+
+getData() {
+    [[ "$TLS" = "true" || "$XTLS" = "true" ]] && {
+        echo -e "\n${YELLOW}要求: 1) 伪装域名 2) DNS解析到${IP} 3) 或提供证书"
+        read -p "确认满足[y]: " answer
+        [[ "${answer,,}" != "y" ]] && exit 0
+        
+        while :; do
+            read -p "输入伪装域名: " DOMAIN
+            DOMAIN=$(echo "$DOMAIN" | tr 'A-Z' 'a-z' | sed 's/\.$//')
+            [[ -z "$DOMAIN" ]] && continue
+            
+            [[ -f ~/xray.pem && -f ~/xray.key ]] && {
+                CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
+                KEY_FILE="/usr/local/etc/xray/${DOMAIN}.key"
+                break
+            }
+            
+            resolved_ip=$(curl -sL "http://ip-api.com/json/$DOMAIN" | grep -oP '"query":"\K[^"]+')
+            [[ "$resolved_ip" == "$IP" ]] && break
+            colorEcho $RED "域名未解析到$IP"
+        done
+        colorEcho $BLUE "域名: $DOMAIN"
+    }
+    
+    if [[ "$( [[ "$WS" = "true" ]] && echo yes || echo no )" = "no" ]]; then
+        [[ "$TLS" = "true" ]] && PORT=443 || PORT=$(shuf -i20000-65000 -n1)
+    else
+        read -p "Nginx端口[443]: " PORT
+        PORT=${PORT:-443}
+        XPORT=$(shuf -i10000-65000 -n1)
+    fi
+    colorEcho $BLUE "端口: $PORT"
+    
+    [[ "$KCP" = "true" ]] && {
+        echo -e "${BLUE}选择伪装类型: 1)无 2)BT下载 3)视频通话"
+        read -p "[1]: " answer
+        case ${answer:-1} in
+            2) HEADER_TYPE="utp";;
+            3) HEADER_TYPE="srtp";;
+            4) HEADER_TYPE="wechat-video";;
+            *) HEADER_TYPE="none";;
+        esac
+        SEED=$(cat /proc/sys/kernel/random/uuid)
+        colorEcho $BLUE "伪装类型: $HEADER_TYPE"
+    }
+    
+    [[ "$TROJAN" = "true" ]] && {
+        read -p "trojan密码(留空随机): " PASSWORD
+        PASSWORD=${PASSWORD:-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n1)}
+        colorEcho $BLUE "密码: $PASSWORD"
+    }
+    
+    [[ "$XTLS" = "true" ]] && {
+        FLOW="xtls-rprx-direct"
+        colorEcho $BLUE "流控: $FLOW"
+    }
+    
+    [[ "$WS" = "true" ]] && {
+        while :; do
+            read -p "WS路径(留空随机): " WSPATH
+            [[ -z "$WSPATH" ]] && WSPATH="/$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n1)"
+            [[ "${WSPATH:0:1}" = "/" && "$WSPATH" != "/" ]] && break
+        done
+        colorEcho $BLUE "WS路径: $WSPATH"
+    }
+    
+    [[ "$TLS" = "true" || "$XTLS" = "true" ]] && {
+        echo -e "${BLUE}伪装网站: 1)静态页 2)小说站 3)美女站"
+        read -p "[1]: " answer
+        case ${answer:-1} in
+            2) PROXY_URL=${SITES[$(shuf -i0-$((${#SITES[@]}-1)) -n1]};;
+            3) PROXY_URL="https://imeizi.me";;
+            4) PROXY_URL="https://bing.imeizi.me";;
+            5) read -p "输入反代URL: " PROXY_URL;;
+            *) PROXY_URL="";;
+        esac
+        REMOTE_HOST=$(echo "$PROXY_URL" | cut -d/ -f3)
+        colorEcho $BLUE "伪装站: ${PROXY_URL:-静态页}"
+        
+        read -p "允许搜索引擎[y/N]: " answer
+        ALLOW_SPIDER=$([[ "${answer,,}" = "y" ]] && echo y || echo n)
+        colorEcho $BLUE "爬虫: $ALLOW_SPIDER"
+    }
+    
+    read -p "安装BBR[y/N]: " NEED_BBR
+    [[ "${NEED_BBR,,}" = "y" ]] && NEED_BBR=y || NEED_BBR=n
+}
+
+installNginx() {
+    [[ "$BT" = "true" ]] && command -v nginx &>/dev/null || {
+        colorEcho $RED "需先安装Nginx"; exit 1
+    } && return
+    
+    [[ "$PMT" = "yum" ]] && {
+        cat <<EOF > /etc/yum.repos.d/nginx.repo
+[nginx-stable]
+name=nginx repo
+baseurl=https://nginx.org/packages/centos/\$releasever/\$basearch/
+gpgcheck=0
+enabled=1
+EOF
+    }
+    $CMD_INSTALL nginx || { colorEcho $RED "Nginx安装失败"; exit 1; }
+    systemctl enable nginx
+}
+
+getCert() {
+    mkdir -p /usr/local/etc/xray
+    [[ -n "${CERT_FILE+x}" ]] && return
+    
+    systemctl stop xray 2>/dev/null
+    $CMD_INSTALL socat openssl
+    curl -sL https://get.acme.sh | sh -s email=3000mall@dimsn.com
+    ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
+    ~/.acme.sh/acme.sh --issue -d $DOMAIN --standalone
+    CERT_FILE="/usr/local/etc/xray/${DOMAIN}.pem"
+    KEY_FILE="/usr/local/etc/xray/${DOMAIN}.key"
+    ~/.acme.sh/acme.sh --install-cert -d $DOMAIN --ecc \
+        --key-file $KEY_FILE --fullchain-file $CERT_FILE
+}
+
+configNginx() {
+    [[ "$ALLOW_SPIDER" = "n" ]] && {
+        echo 'User-Agent: *' > /usr/share/nginx/html/robots.txt
+        echo 'Disallow: /' >> /usr/share/nginx/html/robots.txt
+        ROBOT_CONFIG="location = /robots.txt {}"
+    }
+    
+    [[ "$BT" = "false" ]] && {
+        [[ ! -f /etc/nginx/nginx.conf.bak ]] && mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+        cat > /etc/nginx/nginx.conf <<'EOF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+events { worker_connections 1024; }
+http {
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent';
+    access_log /var/log/nginx/access.log main;
+    server_tokens off;
+    sendfile on; tcp_nopush on; tcp_nodelay on; keepalive_timeout 65; gzip on;
+    include /etc/nginx/mime.types; default_type application/octet-stream;
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+    }
+    
+    mkdir -p "${NGINX_CONF_PATH}"
+    [[ -n "$PROXY_URL" ]] && action="proxy_pass $PROXY_URL; sub_filter \"$REMOTE_HOST\" \"$DOMAIN\";"
+    
+    if [[ "$WS" = "true" ]]; then
+        cat > "${NGINX_CONF_PATH}${DOMAIN}.conf" <<EOF
+server {
+    listen 80; listen [::]:80; server_name $DOMAIN; return 301 https://\$host\$request_uri;
+}
+server {
+    listen $PORT ssl http2; listen [::]:$PORT ssl http2; server_name $DOMAIN;
+    ssl_certificate $CERT_FILE; ssl_certificate_key $KEY_FILE;
+    ssl_protocols TLSv1.2; ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256;
+    root /usr/share/nginx/html;
+    location / { $action }
+    $ROBOT_CONFIG
+    location $WSPATH {
+        proxy_pass http://127.0.0.1:$XPORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+    }
+}
+EOF
+    else
+        cat > "${NGINX_CONF_PATH}${DOMAIN}.conf" <<EOF
+server {
+    listen 80; listen [::]:80; listen 81 http2; server_name $DOMAIN;
+    root /usr/share/nginx/html; location / { $action } $ROBOT_CONFIG
+}
+EOF
+    fi
+}
+
+installXray() {
+    getVersion
+    [[ $? -eq 0 ]] && return
+    
+    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-$(archAffix).zip"
+    curl -L -o /tmp/xray.zip "$DOWNLOAD_LINK" || { colorEcho $RED "下载失败"; exit 1; }
+    unzip /tmp/xray.zip -d /tmp/xray || { colorEcho $RED "解压失败"; exit 1; }
+    
+    systemctl stop xray 2>/dev/null
+    mkdir -p /usr/local/etc/xray /usr/local/share/xray
+    cp /tmp/xray/xray /usr/local/bin
+    cp /tmp/xray/geo* /usr/local/share/xray
+    chmod +x /usr/local/bin/xray
+    
+    cat > /etc/systemd/system/xray.service <<'EOF'
+[Unit]
+Description=Xray Service
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable xray.service
+}
+
+configXray() {
+    if [[ "$TROJAN" = "true" ]]; then
+        [[ "$XTLS" = "true" ]] && security="xtls" || security="tls"
+        cat > $CONFIG_FILE <<EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "trojan",
+    "settings": { "clients": [{ "password": "$PASSWORD"${FLOW:+, \"flow\": \"$FLOW\"} }] },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "$security",
+      "${security}Settings": { "serverName": "$DOMAIN" }
+    }
+  }]
+}
+EOF
+    else
+        uuid=$(cat '/proc/sys/kernel/random/uuid')
+        if [[ "$VLESS" = "false" ]]; then
+            protocol="vmess"
+            alterid=", \"alterId\": 0"
+        else
+            protocol="vless"
+            alterid=""
+            [[ "$XTLS" = "true" ]] && flow=", \"flow\": \"$FLOW\""
+        fi
+        
+        if [[ "$KCP" = "true" ]]; then
+            network="\"network\": \"kcp\", \"kcpSettings\": { \"header\": { \"type\": \"$HEADER_TYPE\" }, \"seed\": \"$SEED\" }"
+        elif [[ "$WS" = "true" ]]; then
+            network="\"network\": \"ws\", \"wsSettings\": { \"path\": \"$WSPATH\"${DOMAIN:+, \"headers\": { \"Host\": \"$DOMAIN\" }} }"
+        else
+            network="\"network\": \"tcp\""
+        fi
+        
+        [[ "$TLS" = "true" || "$XTLS" = "true" ]] && {
+            [[ "$XTLS" = "true" ]] && security="xtls" || security="tls"
+            tls_settings=", \"security\": \"$security\", \"${security}Settings\": { \"serverName\": \"$DOMAIN\" }"
+        }
+        
+        cat > $CONFIG_FILE <<EOF
+{
+  "inbounds": [{
+    "port": ${WS:+$XPORT}${WS:-$PORT},
+    "protocol": "$protocol",
+    "settings": { "clients": [{ "id": "$uuid"$alterid$flow }] },
+    "streamSettings": { $network$tls_settings }
+  }]
+}
+EOF
+    fi
+}
+
+start() {
+    systemctl restart nginx
+    systemctl restart xray
+    sleep 2
+    ss -nutlp | grep -q xray && colorEcho $GREEN "启动成功" || colorEcho $RED "启动失败"
+}
+
+install() {
+    getData
+    installNginx
+    [[ "$TLS" = "true" || "$XTLS" = "true" ]] && getCert
+    configNginx
+    installXray
+    configXray
+    start
+    showInfo
+    [[ "$NEED_BBR" = "y" ]] && echo -e "\n${YELLOW}安装BBR需要重启，请稍后手动执行 reboot${PLAIN}"
+}
+
+showInfo() {
+    [[ ! -f $CONFIG_FILE ]] && { colorEcho $RED "未安装"; return; }
+    
+    if grep -q trojan $CONFIG_FILE; then
+        password=$(grep password $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+        security=$(grep security $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+        echo -e "${GREEN}trojan配置:"
+        echo -e "  地址: $DOMAIN"
+        echo -e "  端口: $PORT"
+        echo -e "  密码: $password"
+        echo -e "  传输: $security"
+    else
+        uuid=$(grep id $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+        protocol=$(grep protocol $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+        network=$(grep network $CONFIG_FILE | cut -d: -f2 | tr -d \",' ')
+        echo -e "${GREEN}${protocol}配置:"
+        echo -e "  地址: ${DOMAIN:-$IP}"
+        echo -e "  端口: ${WS:+$PORT (Nginx) → $XPORT (Xray)}${WS:-$PORT}"
+        [[ -n "$WSPATH" ]] && echo -e "  路径: $WSPATH"
+        echo -e "  UUID: $uuid"
+        echo -e "  传输: $network"
+    fi
+    
+    [[ -n "$(command -v qrencode)" ]] && {
+        echo -e "${BLUE}二维码:"
+        qrcode=$(echo -n "xray://$uuid@${DOMAIN:-$IP}:$PORT" | base64 -w0)
+        qrencode -t utf8 "xray://$uuid@${DOMAIN:-$IP}:$PORT"
+    }
+}
+
+menu() {
+    clear
+    echo "========================================"
+    echo -e "  ${RED}Xray 一键安装脚本${PLAIN}"
+    echo -e "  ${GREEN}1.${PLAIN} 安装 VMESS+WS+TLS (推荐)"
+    echo -e "  ${GREEN}2.${PLAIN} 安装 VMESS+mKCP"
+    echo -e "  ${GREEN}3.${PLAIN} 安装 VLESS+WS+TLS"
+    echo -e "  ${GREEN}4.${PLAIN} 安装 VLESS+XTLS (推荐)"
+    echo -e "  ${GREEN}5.${PLAIN} 安装 Trojan"
+    echo -e "  ${GREEN}6.${PLAIN} 安装 Trojan+XTLS"
+    echo -e "  ${GREEN}7.${PLAIN} 查看配置"
+    echo -e "  ${GREEN}8.${PLAIN} 重启服务"
+    echo -e "  ${GREEN}9.${PLAIN} 卸载"
+    echo -e "  ${GREEN}0.${PLAIN} 退出"
+    echo "========================================"
+    echo -n "当前状态: " && statusText
+    echo "----------------------------------------"
+    
+    read -p "请选择: " option
+    case $option in
+        1) TLS=true WS=true;;
+        2) KCP=true;;
+        3) VLESS=true TLS=true WS=true;;
+        4) VLESS=true TLS=true XTLS=true;;
+        5) TROJAN=true TLS=true;;
+        6) TROJAN=true TLS=true XTLS=true;;
+        7) showInfo;;
+        8) start;;
+        9) systemctl stop xray
+           rm -rf /usr/local/bin/xray /usr/local/etc/xray /etc/systemd/system/xray.service
+           colorEcho $GREEN "已卸载";;
+        0) exit 0;;
+        *) colorEcho $RED "无效选择";;
+    esac
+    
+    [[ $option -ge 1 && $option -le 6 ]] && install
+    [[ $option -ne 0 ]] && { echo; read -p "按回车继续..."; menu; }
+}
+
+# 初始化
+checkSystem
+getPublicIP
+detectBT
+menu
