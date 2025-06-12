@@ -1785,19 +1785,18 @@ gen_node_link() {
         echo "vmess://$(echo -n "$raw" | base64 -w 0)"
         ;;
     "vless")
-        if [[ "$xtls" = "true" ]]; then
+        if [[ "$TLS" == "xtls" ]]; then
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=xtls&flow=${FLOW}&sni=${DOMAIN}#${REMARK}"
-        elif [[ "$kcp" = "true" ]]; then
+        elif [[ "$TLS" == "$mkcp" ]]; then
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=kcp&headerType=${TYPE}&seed=${SEED}#${REMARK}"
-        elif [[ "$ws" = "false" ]]; then
-            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
-        else
+        elif [[ "$TLS" == "$ws" ]]; then
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=ws&security=tls&host=${DOMAIN}&path=${WSPATH}#${REMARK}"
+        else
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
         fi
-        echo "${xtls}"
         ;;
     "trojan")
-        if [[ "$xtls" = "true" ]]; then
+        if [[ "$TLS" == "xtls" ]]; then
             echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?flow=${FLOW}&encryption=none&type=${NETWORK}&security=xtls#${REMARK}"
         else
             echo "trojan://$PASSWORD@$DOMAIN:${PORT}?type=${NETWORK}&security=tls#${REMARK}"
