@@ -1581,32 +1581,339 @@ restart() {
     start
 }
 
-# 显示配置信息
-showInfo() {
-    res=$(status)
-    [[ $res -lt 2 ]] && {
-        colorEcho $RED "Xray未安装，请先安装！"
+getConfigFileInfo() {
+    protocol=$(jq -r '.inbounds[0].protocol' "$CONFIG_FILE")
+    uid=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
+    alterid=$(jq -r '.inbounds[0].settings.clients[0].alterId // empty' "$CONFIG_FILE")
+    password=$(jq -r '.inbounds[0].settings.clients[0].password // empty' "$CONFIG_FILE")
+    flow=$(jq -r '.inbounds[0].settings.clients[0].flow // empty' "$CONFIG_FILE")
+    port=$(jq -r '.inbounds[0].port' "$CONFIG_FILE")
+    # network可能多级
+    network=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
+    security=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
+    domain=$(jq -r '
+      .inbounds[0].streamSettings.tlsSettings.serverName // 
+      .inbounds[0].streamSettings.xtlsSettings.serverName // 
+      .inbounds[0].streamSettings.wsSettings.headers.Host // empty
+    ' "$CONFIG_FILE")
+    wspath=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
+    type=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
+    seed=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
+
+    # 协议判断 - 用于下步输出识别
+    vless="false"
+    trojan="false"
+    ws="false"
+    kcp="false"
+    xtls="false"
+    tls="false"
+
+    [[ "$protocol" = "vless" ]] && vless="true"
+    [[ "$protocol" = "trojan" ]] && trojan="true"
+    [[ "$network" = "ws" ]] && ws="true"
+    [[ "$network" = "mkcp" ]] && kcp="true"
+    [[ "$security" = "xtls" ]] && xtls="true"
+    [[ "$security" = "tls" ]] && tls="true"
+}
+
+showKV() {  # showKV <name> <value>
+    [[ -n "$2" ]] && echo -e "   ${BLUE}$1:${PLAIN} ${RED}$2${PLAIN}"
+}
+
+qrcode() { [[ -n "$1" && $(command -v qrencode) ]] && echo -n "$1" | qrencode -o - -t utf8; }
+
+# ## socks5 install function start
+installSocks5CheckAndInstall() {
+    if [[ ! -f $CONFIG_FILE ]]; then
+        colorEcho $RED " 请先安装1号(VMESS+WS+TLS)或8号(VLESS+XTLS)协议！"
         return 1
-    }
-    
+    fi
+
+    cfgstr=$(cat $CONFIG_FILE)
+    if echo "$cfgstr" | grep -q '"protocol": "vmess"' && echo "$cfgstr" | grep -q '"network": "ws"'; then
+        base_type="vmessws"
+    elif echo "$cfgstr" | grep -q '"protocol": "vless"' && echo "$cfgstr" | grep -q '"security": "xtls"'; then
+        base_type="vlessxtls"
+    else
+        colorEcho $RED " 只支持1号(WS+VMESS+TLS)或8号(VLESS+XTLS)协议搭配SOCKS5，其它协议不可加SOCKS5！"
+        return 1
+    fi
+
+    if grep -q '"protocol": "socks"' $CONFIG_FILE; then
+        colorEcho $YELLOW " 已安装SOCKS5，无需重复安装"
+        return 1
+    fi
+
     echo
+    read -p " 请输入SOCKS5监听端口 [默认10800]：" socks_port
+    [[ -z "$socks_port" ]] && socks_port=10800
+
+    # 检查端口是否已被占用
+    if ss -tuln | grep -q ":$socks_port "; then
+        colorEcho $RED " 错误：端口 $socks_port 已被其他进程占用！"
+        return 1
+    fi
+    
+    # 检查端口是否在1-65535范围内
+    if [[ $socks_port -lt 1 || $socks_port -gt 65535 ]]; then
+        colorEcho $RED " 错误：端口号必须在 1-65535 范围内！"
+        return 1
+    fi
+    
+    # 监听地址0.0.0.0
+    [[ -z "$socks_ip" ]] && socks_ip="0.0.0.0"
+
+    echo
+    echo -e " 是否开启账号密码认证？"
+    read -p " [y/N]：" need_auth
+    if [[ "${need_auth,,}" = "y" ]]; then
+        while true; do
+            read -p " 请输入SOCKS5用户名：" socks_user
+            [[ -z "$socks_user" ]] && echo " 用户名不能为空！" && continue
+            break
+        done
+        while true; do
+            read -p " 请输入SOCKS5密码：" socks_pass
+            [[ -z "$socks_pass" ]] && echo " 密码不能为空！" && continue
+            break
+        done
+    else
+        socks_user=""
+        socks_pass=""
+    fi
+
+    addSocks5Inbound "$socks_port" "$socks_ip" "$socks_user" "$socks_pass"
+    systemctl restart xray
+    sleep 2
+    colorEcho $GREEN " SOCKS5安装完成！"
+    # 防火墙配置
+    colorEcho $BLUE " 正在配置防火墙放行端口 $socks_port..."
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --permanent --add-port=$socks_port/tcp
+        firewall-cmd --permanent --add-port=$socks_port/udp
+        if [ $? -eq 0 ]; then
+            firewall-cmd --reload
+            colorEcho $GREEN " Firewalld 已放行端口 $socks_port"
+        else
+            colorEcho $RED " Firewalld 端口放行失败！请手动检查"
+        fi
+        
+    elif command -v ufw &>/dev/null; then
+        ufw allow $socks_port/tcp
+        ufw allow $socks_port/udp
+        if [ $? -eq 0 ]; then
+            colorEcho $GREEN " UFW 已放行端口 $socks_port"
+        else
+            colorEcho $RED " UFW 端口放行失败！请手动检查"
+        fi
+        
+    else
+        iptables -I INPUT -p tcp --dport $socks_port -j ACCEPT
+        iptables -I INPUT -p udp --dport $socks_port -j ACCEPT
+        if [ $? -eq 0 ]; then
+            # iptables持久化
+            colorEcho $GREEN " iptables 已临时放行端口 $socks_port"
+            colorEcho $YELLOW " 注意：iptables规则重启后会失效，请执行以下命令持久化："
+            echo -e "   ${GREEN}Debian/Ubuntu:${PLAIN} apt install iptables-persistent -y && netfilter-persistent save"
+            echo -e "   ${GREEN}CentOS/RHEL:${PLAIN} yum install iptables-services -y && service iptables save"
+        else
+            colorEcho $RED " iptables 端口放行失败！请手动检查"
+        fi
+    fi
+    colorEcho $GREEN " SOCKS5安装完成！"
+    showInfoWithSocks5
+}
+# ## socks5 install function end
+
+addSocks5Inbound() {
+    local port="$1"
+    local addr="$2"
+    local user="$3"
+    local pass="$4"
+
+    if [[ -n "$user" && -n "$pass" ]]; then
+        jq '.inbounds += [{"port": '"$port"',"listen": "'"$addr"'","protocol": "socks","settings": {"auth": "password","accounts": [{"user": "'"$user"'","pass": "'"$pass"'"}], "udp": true}}]' "$CONFIG_FILE" > /tmp/xray_config_new && mv /tmp/xray_config_new "$CONFIG_FILE"
+    else
+        jq '.inbounds += [{"port": '"$port"',"listen": "'"$addr"'","protocol": "socks","settings": {"auth": "noauth", "udp": true}}]' "$CONFIG_FILE" > /tmp/xray_config_new && mv /tmp/xray_config_new "$CONFIG_FILE"
+    fi
+}
+
+outputMainLink() {
+    local link=""
+    local remark="${domain:-$IP}"
+
+    case "$protocol:$network:$security" in
+        vmess:ws:tls)
+            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${wspath}\",\"tls\":\"tls\"}"
+            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+            ;;
+        vmess:mkcp:none)
+            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"kcp\",\"type\":\"${type}\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
+            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+            ;;
+        vmess:tcp:tls)
+            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"\",\"tls\":\"tls\"}"
+            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+            ;;
+        vmess:tcp:none)
+            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
+            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+            ;;
+        vless:ws:none)
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=ws&security=none&host=${domain}&path=${wspath}#${remark}"
+            ;;
+        vless:ws:tls)
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=ws&security=tls&host=${domain}&path=${wspath}#${remark}"
+            ;;
+        vless:tcp:tls)
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=tls&sni=${domain}#${remark}"
+            ;;
+        vless:tcp:xtls)
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=xtls&flow=${flow}&sni=${domain}#${remark}"
+            ;;
+        vless:mkcp:none)
+            link="vless://${uid}@${IP}:${port}?encryption=none&type=kcp&headerType=${type}&seed=${seed}#${remark}"
+            ;;
+        trojan:tcp:tls)
+            link="trojan://${password}@${domain}:${port}?security=tls&sni=${domain}#${remark}"
+            ;;
+        trojan:tcp:xtls)
+            link="trojan://${password}@${domain}:${port}?flow=${flow}&encryption=none&type=tcp&security=xtls#${remark}"
+            ;;
+        *)
+            link="未知，暂不支持解析"
+            ;;
+    esac
+
+    echo
+    echo -e "   ${BLUE}一键链接:${PLAIN} ${RED}$link${PLAIN}"
+    if command -v qrencode >/dev/null 2>&1; then
+        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+        echo -n "$link" | qrencode -o - -t utf8
+        echo
+    fi
+}
+
+showLink() {
+    local link
+    case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
+      vmess:ws:tls)
+        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${XRAY_SERVERNAME}\",\"path\":\"${XRAY_WSPATH}\",\"tls\":\"tls\"}"
+        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+        ;;
+      vmess:mkcp:none)
+        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"kcp\",\"type\":\"${XRAY_TYPE}\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
+        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+        ;;
+      vmess:tcp:tls)
+        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"${XRAY_SERVERNAME}\",\"path\":\"\",\"tls\":\"tls\"}"
+        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+        ;;
+      vless:ws:none)
+        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=ws&security=none&host=${XRAY_SERVERNAME}&path=${XRAY_WSPATH}#${XRAY_REMARK}"
+        ;;
+      vless:ws:tls)
+        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=ws&security=tls&host=${XRAY_SERVERNAME}&path=${XRAY_WSPATH}#${XRAY_REMARK}"
+        ;;
+      vless:tcp:tls)
+        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=tcp&security=tls&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
+        ;;
+      vless:tcp:xtls)
+        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=tcp&security=xtls&flow=${XRAY_FLOW}&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
+        ;;
+      vless:mkcp:none)
+        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=kcp&headerType=${XRAY_TYPE}&seed=${XRAY_SEED}#${XRAY_REMARK}"
+        ;;
+      trojan:tcp:tls)
+        link="trojan://${XRAY_PASSWORD}@${XRAY_SERVERNAME}:${XRAY_PORT}?security=tls&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
+        ;;
+      trojan:tcp:xtls)
+        link="trojan://${XRAY_PASSWORD}@${XRAY_SERVERNAME}:${XRAY_PORT}?flow=${XRAY_FLOW}&encryption=none&type=tcp&security=xtls#${XRAY_REMARK}"
+        ;;
+      *)
+        link="未知协议，暂不支持解析"
+        ;;
+    esac
+
+    echo
+    colorEcho "$BLUE" "Xray配置信息："
+    showKV "协议(protocol)" "$XRAY_PROTOCOL"
+    showKV "UUID/密码(id/password)" "${XRAY_UUID:-$XRAY_PASSWORD}"
+    showKV "端口(port)" "$XRAY_PORT"
+    showKV "alterId" "$XRAY_ALTERID"
+    showKV "传输(network)" "$XRAY_NETWORK"
+    showKV "安全(security)" "$XRAY_SECURITY"
+    showKV "host(serverName)" "$XRAY_SERVERNAME"
+    showKV "ws路径(path)" "$XRAY_WSPATH"
+    showKV "mkcp type" "$XRAY_TYPE"
+    showKV "mkcp seed" "$XRAY_SEED"
+    showKV "xtls/流控" "$XRAY_FLOW"
+    echo -e "   ${BLUE}一键链接:${PLAIN} ${RED}${link}${PLAIN}"
+    qrcode "$link" && echo
+}
+
+showInfo() {
+    res=`status`
+    if [[ $res -lt 2 ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
+    
+    echo ""
     echo -n -e " ${BLUE}Xray运行状态：${PLAIN}"
     statusText
     echo -e " ${BLUE}Xray配置文件: ${PLAIN} ${RED}${CONFIG_FILE}${PLAIN}"
-    colorEcho $BLUE "Xray配置信息："
-
+    colorEcho $BLUE " Xray配置信息："
     getConfigFileInfo
-    outputConfigInfo
-    
-    return 0
+    outputMainLink
 }
 
-# 显示带SOCKS5的配置信息
 showInfoWithSocks5() {
-    showInfo || return 1
-    showSocks5Info
-    showQRCode
-    return 0
+    showInfo
+    # 判断 socks 协议是否存在，填充 link2
+    socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' "$CONFIG_FILE")
+    link2=""
+    if [[ "$socks_exists" == "socks" ]]; then
+        port=$(jq -r '.inbounds[] | select(.protocol == "socks") | .port' "$CONFIG_FILE")
+        listen=$(jq -r '.inbounds[] | select(.protocol == "socks") | .listen // "127.0.0.1"' "$CONFIG_FILE")
+        auth=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.auth // "noauth"' "$CONFIG_FILE")
+        user=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].user // empty' "$CONFIG_FILE")
+        pass=$(jq -r '.inbounds[] | select(.protocol == "socks") | .settings.accounts[0].pass // empty' "$CONFIG_FILE")
+        echo
+        colorEcho $BLUE " SOCKS5配置信息："
+        echo -e "   ${BLUE}监听地址: ${PLAIN}${RED}${IP}${PLAIN}"
+        echo -e "   ${BLUE}监听端口: ${PLAIN}${RED}${port}${PLAIN}"
+        if [[ "$auth" == "password" && -n "$user" && -n "$pass" ]]; then
+            link2="socks://${user}:${pass}@${IP}:${port}"
+            echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}账号密码${PLAIN}"
+            echo -e "   ${BLUE}用户名:   ${PLAIN}${RED}${user}${PLAIN}"
+            echo -e "   ${BLUE}密码:     ${PLAIN}${RED}${pass}${PLAIN}"
+            echo
+            echo -e "   ${BLUE}socks链接：${PLAIN} ${RED}${link2}${PLAIN}"
+        else
+            link2="socks://${IP}:${port}"
+            echo -e "   ${BLUE}认证方式: ${PLAIN}${RED}无认证${PLAIN}"
+            echo
+            echo -e "   ${BLUE}socks链接：${PLAIN}${RED}${link2}${PLAIN}"
+        fi
+    fi
+    # 生成二维码
+    if command -v qrencode >/dev/null 2>&1; then
+        echo
+        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+        echo
+        echo -n "$link" | qrencode -o - -t utf8
+        echo
+        if [[ -n "$link2" ]]; then
+            echo
+            echo "   [SOCKS二维码]:"
+            echo
+            echo -n "$link2" | qrencode -o - -t utf8
+            echo
+        fi
+    else
+        echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
+    fi
 }
 
 # 显示日志
