@@ -1769,7 +1769,8 @@ getConfigFileInfo() {
 gen_node_link() {
     case "$PROTOCOL" in
     "vmess")
-        local raw="{
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+        raw="{
   \"v\":\"2\",
   \"ps\":\"\",
   \"add\":\"$IP\",
