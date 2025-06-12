@@ -1770,18 +1770,18 @@ gen_node_link() {
     case "$PROTOCOL" in
     "vmess")
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-    raw="{
-  \"v\":\"2\",
-  \"ps\":\"\",
-  \"add\":\"$IP\",
-  \"port\":\"${port}\",
-  \"id\":\"${uid}\",
-  \"aid\":\"$alterid\",
-  \"net\":\"${network}\",
-  \"type\":\"none\",
-  \"host\":\"${domain}\",
-  \"path\":\"${wspath}\",
-  \"tls\":\"tls\"
+        raw="{
+    \"v\":\"2\",
+    \"ps\":\"$REMARK\",
+    \"add\":\"$DOMAIN\",
+    \"port\":\"$PORT\",
+    \"id\":\"$UUID\",
+    \"aid\":\"${ALTERID:-0}\",
+    \"net\":\"$NETWORK\",
+    \"type\":\"$TYPE\",
+    \"host\":\"$DOMAIN\",
+    \"path\":\"$WSPATH\",
+    \"tls\":\"${TLS/tls/tls}\"
 }"
         echo "vmess://$(echo -n "$raw" | base64 -w 0)"
         ;;
