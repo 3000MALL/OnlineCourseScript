@@ -1769,6 +1769,9 @@ outputMainLink() {
     local link=""
     local remark="${XRAY_REMARK:-$IP}"
 
+    echo "DEBUG: XRAY_PROTOCOL='$XRAY_PROTOCOL', XRAY_NETWORK='$XRAY_NETWORK', XRAY_SECURITY='$XRAY_SECURITY', XRAY_PORT='$XRAY_PORT', XRAY_UUID='$XRAY_UUID'"
+
+
     case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
         vmess:ws:tls)
             local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${wspath}\",\"tls\":\"tls\"}"
