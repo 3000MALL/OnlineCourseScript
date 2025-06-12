@@ -1744,12 +1744,9 @@ getConfigFileInfo() {
             PORT=$(awk '/listen.*ssl/{print $2}' ${NGINX_CONF_PATH}${DOMAIN}.conf 2>/dev/null | head -1)
         fi
         [[ -z "$PORT" ]] && PORT=443
-        echo "如果${NETWORK}+${PORT}"
     else
         PORT=$(jq -r '.inbounds[0].port' "$CONFIG_FILE")
-        echo "否则${PORT}"
     fi
-    echo "否则外面${PORT}"
     case "$PROTOCOL" in
         "trojan")
             TLS="tls"
@@ -1766,13 +1763,12 @@ getConfigFileInfo() {
             fi
             ;;
     esac
-    REMARK="$DOMAIN"
+    #REMARK="$DOMAIN"
 }
 
 gen_node_link() {
     case "$PROTOCOL" in
     "vmess")
-    #local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     raw="{
   \"v\":\"2\",
   \"ps\":\"\",
@@ -1872,7 +1868,6 @@ showInfo() {
     echo -e " ${BLUE}Xray配置文件: ${PLAIN} ${RED}${CONFIG_FILE}${PLAIN}"
     colorEcho $BLUE " Xray配置信息："
     getConfigFileInfo
-    echo
     echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
     echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${PORT}${PLAIN}"
     [[ -n "$UUID" ]] && echo -e "   ${BLUE}id(uuid): ${PLAIN}${RED}${UUID}${PLAIN}"
@@ -1892,7 +1887,7 @@ showInfo() {
     local link
     link="$(gen_node_link)"
     prefix=${link%%:*}
-    echo -e "   ${BLUE}${prefix}链接：    ${PLAIN}${RED}${link}${PLAIN}"
+    echo -e "   ${BLUE}${prefix}链接: ${PLAIN}${RED}${link}${PLAIN}"
     # 可选生成二维码
     outputSocks5
 }
