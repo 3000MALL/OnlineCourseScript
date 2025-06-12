@@ -408,7 +408,7 @@ handleWSPath() {
 handleProxySite() {
     [[ "$TLS" != "true" && "$XTLS" != "true" ]] && return
 
-    echo -e "\n${BLUE}请选择伪装站类型:"
+    colorEcho $BLUE "\n 请选择伪装站类型:"
     echo "   1) 静态网站(位于/usr/share/nginx/html)"
     echo "   2) 小说站(随机选择)"
     echo "   3) 美女站(https://imeizi.me)"
@@ -452,7 +452,7 @@ handleProxySite() {
     REMOTE_HOST=$(echo "$PROXY_URL" | cut -d/ -f3)
     colorEcho $BLUE "伪装网站：$PROXY_URL"
     
-    echo -e "\n${BLUE}是否允许搜索引擎爬取网站？[默认：不允许]"
+    colorEcho $BLUE "\n  是否允许搜索引擎爬取网站？[默认：不允许]"
     echo "    y)允许，会有更多ip请求网站，但会消耗一些流量，vps流量充足情况下推荐使用"
     echo "    n)不允许，爬虫不会访问网站，访问ip比较单一，但能节省vps流量"
     
