@@ -1446,7 +1446,7 @@ install() {
     start
     
     # 显示配置信息
-    showInfoWithSocks5
+    showInfo
     
     # 需要重启提示
     bbrReboot
@@ -1691,7 +1691,7 @@ installSocks5CheckAndInstall() {
         fi
     fi
     colorEcho $GREEN " SOCKS5安装完成！"
-    showInfoWithSocks5
+    showInfo
 }
 # ## socks5 install function end
 
@@ -1719,187 +1719,90 @@ find_main_inbound_index() {
 }
 
 getConfigFileInfo() {
-    local main_idx
-    main_idx=$(find_main_inbound_index)
-    [[ -z "$main_idx" ]] && {
-        colorEcho $RED "未找到主协议(vmess/vless/trojan) inbound，配置文件格式可能异常"
-        return 1
-    }
-    XRAY_PROTOCOL=$(jq -r ".inbounds[$main_idx].protocol // empty" "$CONFIG_FILE")
-    XRAY_UUID=$(jq -r ".inbounds[$main_idx].settings.clients[0].id // empty" "$CONFIG_FILE")
-    XRAY_ALTERID=$(jq -r ".inbounds[$main_idx].settings.clients[0].alterId // empty" "$CONFIG_FILE")
-    XRAY_PASSWORD=$(jq -r ".inbounds[$main_idx].settings.clients[0].password // empty" "$CONFIG_FILE")
-    XRAY_FLOW=$(jq -r ".inbounds[$main_idx].settings.clients[0].flow // empty" "$CONFIG_FILE")
-    XRAY_PORT=$(jq -r ".inbounds[$main_idx].port // empty" "$CONFIG_FILE")
-    XRAY_NETWORK=$(jq -r ".inbounds[$main_idx].streamSettings.network // \"tcp\"" "$CONFIG_FILE")
-    XRAY_SECURITY=$(jq -r ".inbounds[$main_idx].streamSettings.security // \"none\"" "$CONFIG_FILE")
-    XRAY_SERVERNAME=$(jq -r "
-        .inbounds[$main_idx].streamSettings.tlsSettings.serverName //
-        .inbounds[$main_idx].streamSettings.xtlsSettings.serverName //
-        .inbounds[$main_idx].streamSettings.wsSettings.headers.Host // empty
-    " "$CONFIG_FILE")
-    XRAY_WSPATH=$(jq -r ".inbounds[$main_idx].streamSettings.wsSettings.path // empty" "$CONFIG_FILE")
-    XRAY_TYPE=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.header.type // empty" "$CONFIG_FILE")
-    XRAY_SEED=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.seed // empty" "$CONFIG_FILE")
-    XRAY_REMARK="${XRAY_SERVERNAME:-$IP}"
-
-    # 协议判断 - 用于下步输出识别
-    vless="false"
-    trojan="false"
-    ws="false"
-    kcp="false"
-    xtls="false"
-    tls="false"
-
-    [[ "$protocol" = "vless" ]] && vless="true"
-    [[ "$protocol" = "trojan" ]] && trojan="true"
-    [[ "$network" = "ws" ]] && ws="true"
-    [[ "$network" = "mkcp" ]] && kcp="true"
-    [[ "$security" = "xtls" ]] && xtls="true"
-    [[ "$security" = "tls" ]] && tls="true"
-}
-
-showKV() {  # showKV <name> <value>
-    [[ -n "$2" ]] && echo -e "   ${BLUE}$1:${PLAIN} ${RED}$2${PLAIN}"
-}
-
-qrcode() { [[ -n "$1" && $(command -v qrencode) ]] && echo -n "$1" | qrencode -o - -t utf8; }
-
-outputMainLink() {
-    local link=""
-    local remark="${XRAY_REMARK:-$IP}"
-
-    echo "DEBUG: XRAY_PROTOCOL='$XRAY_PROTOCOL', XRAY_NETWORK='$XRAY_NETWORK', XRAY_SECURITY='$XRAY_SECURITY', XRAY_PORT='$XRAY_PORT', XRAY_UUID='$XRAY_UUID'"
-
-
-    case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
-        vmess:ws:tls)
-            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${wspath}\",\"tls\":\"tls\"}"
-            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+    # 用 jq 提取，不再多段 grep
+    PROTOCOL=$(jq -r '.inbounds[0].protocol // empty' "$CONFIG_FILE")
+    UUID=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
+    PASSWORD=$(jq -r '.inbounds[0].settings.clients[0].password // empty' "$CONFIG_FILE")
+    ALTERID=$(jq -r '.inbounds[0].settings.clients[0].alterId // empty' "$CONFIG_FILE")
+    FLOW=$(jq -r '.inbounds[0].settings.clients[0].flow // empty' "$CONFIG_FILE")
+    NETWORK=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
+    HOST=$(jq -r '.inbounds[0].streamSettings.wsSettings.headers.Host // empty' "$CONFIG_FILE")
+    WSPATH=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
+    SEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
+    DOMAIN="$HOST"
+    [[ -z "$DOMAIN" ]] && DOMAIN=$(jq -r '.inbounds[0].streamSettings.tlsSettings.serverName // empty' "$CONFIG_FILE")
+    [[ -z "$DOMAIN" ]] && DOMAIN=$(jq -r '.inbounds[0].streamSettings.xtlsSettings.serverName // empty' "$CONFIG_FILE")
+    [[ -z "$DOMAIN" ]] && DOMAIN="$IP"
+    [[ -z "$DOMAIN" ]] && DOMAIN=$(hostname -I | awk '{print $1}') # fallback到本机IP
+    # 端口处理（WS 场景反向代理用443，普通用实际端口）
+    if [[ "$NETWORK" == "ws" ]]; then
+        if [ -n "$DOMAIN" ] && [ -f "${NGINX_CONF_PATH}${DOMAIN}.conf" ]; then
+            PORT=$(awk '/listen.*ssl/{print $2}' ${NGINX_CONF_PATH}${DOMAIN}.conf 2>/dev/null | head -1)
+        fi
+        [[ -z "$PORT" ]] && PORT=443
+    else
+        PORT=$(jq -r '.inbounds[0].port' "$CONFIG_FILE")
+    fi
+    case "$PROTOCOL" in
+        "trojan")
+            TLS="tls"
+            [[ -n "$FLOW" ]] && TLS="xtls"
             ;;
-        vmess:mkcp:none)
-            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"kcp\",\"type\":\"${type}\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
-            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+        "vless")
+            TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
             ;;
-        vmess:tcp:tls)
-            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"\",\"tls\":\"tls\"}"
-            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
-            ;;
-        vmess:tcp:none)
-            local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
-            link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
-            ;;
-        vless:ws:none)
-            link="vless://${uid}@${IP}:${port}?encryption=none&type=ws&security=none&host=${domain}&path=${wspath}#${remark}"
-            ;;
-        vless:ws:tls)
-            link="vless://${uid}@${IP}:${port}?encryption=none&type=ws&security=tls&host=${domain}&path=${wspath}#${remark}"
-            ;;
-        vless:tcp:tls)
-            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=tls&sni=${domain}#${remark}"
-            ;;
-        vless:tcp:xtls)
-            link="vless://${uid}@${IP}:${port}?encryption=none&type=tcp&security=xtls&flow=${flow}&sni=${domain}#${remark}"
-            ;;
-        vless:mkcp:none)
-            link="vless://${uid}@${IP}:${port}?encryption=none&type=kcp&headerType=${type}&seed=${seed}#${remark}"
-            ;;
-        trojan:tcp:tls)
-            link="trojan://${password}@${domain}:${port}?security=tls&sni=${domain}#${remark}"
-            ;;
-        trojan:tcp:xtls)
-            link="trojan://${password}@${domain}:${port}?flow=${flow}&encryption=none&type=tcp&security=xtls#${remark}"
-            ;;
-        *)
-            link="未知，暂不支持解析"
+        "vmess")
+            if [[ "$NETWORK" == "ws" ]]; then
+                TLS="tls"
+            else
+                TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
+            fi
             ;;
     esac
-
-    echo
-    echo -e "   ${BLUE}一键链接:${PLAIN} ${RED}$link${PLAIN}"
-    if command -v qrencode >/dev/null 2>&1; then
-        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
-        echo -n "$link" | qrencode -o - -t utf8
-        echo
-    fi
+    REMARK="$DOMAIN"
 }
 
-showLink() {
-    local link
-    case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
-      vmess:ws:tls)
-        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${XRAY_SERVERNAME}\",\"path\":\"${XRAY_WSPATH}\",\"tls\":\"tls\"}"
-        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+gen_node_link() {
+    case "$PROTOCOL" in
+    "vmess")
+        local raw="{
+  \"v\":\"2\",
+  \"ps\":\"$REMARK\",
+  \"add\":\"$DOMAIN\",
+  \"port\":\"$PORT\",
+  \"id\":\"$UUID\",
+  \"aid\":\"${ALTERID:-0}\",
+  \"net\":\"$NETWORK\",
+  \"type\":\"$TYPE\",
+  \"host\":\"$DOMAIN\",
+  \"path\":\"$WSPATH\",
+  \"tls\":\"${TLS/tls/tls}\"
+}"
+        echo "vmess://$(echo -n "$raw" | base64 -w 0)"
         ;;
-      vmess:mkcp:none)
-        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"kcp\",\"type\":\"${XRAY_TYPE}\",\"host\":\"\",\"path\":\"\",\"tls\":\"\"}"
-        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+    "vless")
+        if [[ "$TLS" == "xtls" ]]; then
+            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=tcp&security=xtls&flow=${FLOW}&sni=${DOMAIN}#${REMARK}"
+        elif [[ "$NETWORK" == "ws" ]]; then
+            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=ws&security=tls&host=${DOMAIN}&path=${WSPATH}#${REMARK}"
+        else
+            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
+        fi
         ;;
-      vmess:tcp:tls)
-        local vmess_json="{\"v\":\"2\",\"ps\":\"${XRAY_REMARK}\",\"add\":\"${IP}\",\"port\":\"${XRAY_PORT}\",\"id\":\"${XRAY_UUID}\",\"aid\":\"${XRAY_ALTERID}\",\"net\":\"tcp\",\"type\":\"none\",\"host\":\"${XRAY_SERVERNAME}\",\"path\":\"\",\"tls\":\"tls\"}"
-        link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
+    "trojan")
+        if [[ "$TLS" == "xtls" ]]; then
+            echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?flow=${FLOW}&encryption=none&type=tcp&security=xtls#${REMARK}"
+        else
+            echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?type=tcp&security=tls#${REMARK}"
+        fi
         ;;
-      vless:ws:none)
-        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=ws&security=none&host=${XRAY_SERVERNAME}&path=${XRAY_WSPATH}#${XRAY_REMARK}"
-        ;;
-      vless:ws:tls)
-        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=ws&security=tls&host=${XRAY_SERVERNAME}&path=${XRAY_WSPATH}#${XRAY_REMARK}"
-        ;;
-      vless:tcp:tls)
-        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=tcp&security=tls&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
-        ;;
-      vless:tcp:xtls)
-        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=tcp&security=xtls&flow=${XRAY_FLOW}&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
-        ;;
-      vless:mkcp:none)
-        link="vless://${XRAY_UUID}@${IP}:${XRAY_PORT}?encryption=none&type=kcp&headerType=${XRAY_TYPE}&seed=${XRAY_SEED}#${XRAY_REMARK}"
-        ;;
-      trojan:tcp:tls)
-        link="trojan://${XRAY_PASSWORD}@${XRAY_SERVERNAME}:${XRAY_PORT}?security=tls&sni=${XRAY_SERVERNAME}#${XRAY_REMARK}"
-        ;;
-      trojan:tcp:xtls)
-        link="trojan://${XRAY_PASSWORD}@${XRAY_SERVERNAME}:${XRAY_PORT}?flow=${XRAY_FLOW}&encryption=none&type=tcp&security=xtls#${XRAY_REMARK}"
-        ;;
-      *)
-        link="未知协议，暂不支持解析"
+    *)
+        echo "暂不支持该协议: $PROTOCOL"
         ;;
     esac
-
-    echo
-    colorEcho "$BLUE" "Xray配置信息："
-    showKV "协议(protocol)" "$XRAY_PROTOCOL"
-    showKV "UUID/密码(id/password)" "${XRAY_UUID:-$XRAY_PASSWORD}"
-    showKV "端口(port)" "$XRAY_PORT"
-    showKV "alterId" "$XRAY_ALTERID"
-    showKV "传输(network)" "$XRAY_NETWORK"
-    showKV "安全(security)" "$XRAY_SECURITY"
-    showKV "host(serverName)" "$XRAY_SERVERNAME"
-    showKV "ws路径(path)" "$XRAY_WSPATH"
-    showKV "mkcp type" "$XRAY_TYPE"
-    showKV "mkcp seed" "$XRAY_SEED"
-    showKV "xtls/流控" "$XRAY_FLOW"
-    echo -e "   ${BLUE}一键链接:${PLAIN} ${RED}${link}${PLAIN}"
-    qrcode "$link" && echo
 }
 
-showInfo() {
-    res=`status`
-    if [[ $res -lt 2 ]]; then
-        colorEcho $RED " Xray未安装，请先安装！"
-        return
-    fi
-    
-    echo ""
-    echo -n -e " ${BLUE}Xray运行状态：${PLAIN}"
-    statusText
-    echo -e " ${BLUE}Xray配置文件: ${PLAIN} ${RED}${CONFIG_FILE}${PLAIN}"
-    colorEcho $BLUE " Xray配置信息："
-    getConfigFileInfo
-    outputMainLink
-}
-
-showInfoWithSocks5() {
-    showInfo
+outputSocks5() {
     # 判断 socks 协议是否存在，填充 link2
     socks_exists=$(jq -r '.inbounds[] | select(.protocol == "socks") | .protocol' "$CONFIG_FILE")
     link2=""
@@ -1944,6 +1847,39 @@ showInfoWithSocks5() {
     else
         echo "(未检测到qrencode, 请安装: apt install -y qrencode)"
     fi
+}
+
+showInfo() {
+    res=`status`
+    if [[ $res -lt 2 ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
+    
+    echo ""
+    echo -n -e " ${BLUE}Xray运行状态：${PLAIN}"
+    statusText
+    echo -e " ${BLUE}Xray配置文件: ${PLAIN} ${RED}${CONFIG_FILE}${PLAIN}"
+    colorEcho $BLUE " Xray配置信息："
+    getConfigFileInfo
+    echo
+    echo -e "  ${BLUE}协议:        ${PLAIN}${RED}${PROTOCOL}${PLAIN}"
+    echo -e "  ${BLUE}地址(address):${PLAIN}${RED}${DOMAIN}${PLAIN}"
+    echo -e "  ${BLUE}端口(port):   ${PLAIN}${RED}${PORT}${PLAIN}"
+    [[ -n "$UUID" ]] && echo -e "  ${BLUE}UUID:         ${PLAIN}${RED}${UUID}${PLAIN}"
+    [[ -n "$ALTERID" ]] && echo -e "  ${BLUE}AlterID:      ${PLAIN}${RED}${ALTERID}${PLAIN}"
+    [[ -n "$NETWORK" ]] && echo -e "  ${BLUE}传输(network):${PLAIN}${RED}${NETWORK}${PLAIN}"
+    [[ -n "$HOST" ]] && echo -e "  ${BLUE}Host:         ${PLAIN}${RED}${HOST}${PLAIN}"
+    [[ -n "$WSPATH" ]] && echo -e "  ${BLUE}路径(path):   ${PLAIN}${RED}${WSPATH}${PLAIN}"
+    [[ -n "$TLS" ]]   && echo -e "  ${BLUE}安全层:       ${PLAIN}${RED}${TLS}${PLAIN}"
+    [[ -n "$FLOW" ]]  && echo -e "  ${BLUE}流控(flow):   ${PLAIN}${RED}${FLOW}${PLAIN}"
+    [[ -n "$PASSWORD" ]] && echo -e "  ${BLUE}密码:         ${PLAIN}${RED}${PASSWORD}${PLAIN}"
+    echo
+    local link
+    link="$(gen_node_link)"
+    echo -e "  ${BLUE}节点链接：    ${PLAIN}${RED}${link}${PLAIN}"
+    # 可选生成二维码
+    outputSocks5
 }
 
 # 显示日志
@@ -2019,7 +1955,7 @@ menu() {
             14) start ;;
             15) restart ;;
             16) stop ;;
-            17) showInfoWithSocks5 ;;
+            17) showInfo ;;
             18) showLog ;;
             *) colorEcho $RED " 请选择正确的操作！" ;;
         esac
