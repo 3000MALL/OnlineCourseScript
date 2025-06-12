@@ -1722,13 +1722,17 @@ getConfigFileInfo() {
     # 用 jq 提取，不再多段 grep
     PROTOCOL=$(jq -r '.inbounds[0].protocol // empty' "$CONFIG_FILE")
     UUID=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
-    PASSWORD=$(jq -r '.inbounds[0].settings.clients[0].password // empty' "$CONFIG_FILE")
     ALTERID=$(jq -r '.inbounds[0].settings.clients[0].alterId // empty' "$CONFIG_FILE")
     FLOW=$(jq -r '.inbounds[0].settings.clients[0].flow // empty' "$CONFIG_FILE")
-    NETWORK=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
+    SECURITY=$(jq -r '.inbounds[0].settings.clients[0].security // empty' "$CONFIG_FILE")   
+    ENCRYPTION=$(jq -r '.inbounds[0].settings.clients[0].encryption // empty' "$CONFIG_FILE")  
+    NETWORK=$(jq -r '.inbounds[0].streamSettings.network // empty' "$CONFIG_FILE")
+    TYPE=$(jq -r '.inbounds[0].streamSettings.***type // empty' "$CONFIG_FILE")  
+    HEADERTYPE=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
+    MKCPSEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
     HOST=$(jq -r '.inbounds[0].streamSettings.wsSettings.headers.Host // empty' "$CONFIG_FILE")
     WSPATH=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
-    SEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
+    TLS=$(jq -r '.inbounds[0].streamSettings.security // empty' "$CONFIG_FILE")
     DOMAIN="$HOST"
     [[ -z "$DOMAIN" ]] && DOMAIN=$(jq -r '.inbounds[0].streamSettings.tlsSettings.serverName // empty' "$CONFIG_FILE")
     [[ -z "$DOMAIN" ]] && DOMAIN=$(jq -r '.inbounds[0].streamSettings.xtlsSettings.serverName // empty' "$CONFIG_FILE")
@@ -1767,33 +1771,35 @@ gen_node_link() {
     "vmess")
         local raw="{
   \"v\":\"2\",
-  \"ps\":\"$REMARK\",
-  \"add\":\"$DOMAIN\",
-  \"port\":\"$PORT\",
-  \"id\":\"$UUID\",
-  \"aid\":\"${ALTERID:-0}\",
-  \"net\":\"$NETWORK\",
-  \"type\":\"$TYPE\",
-  \"host\":\"$DOMAIN\",
-  \"path\":\"$WSPATH\",
-  \"tls\":\"${TLS/tls/tls}\"
+  \"ps\":\"\",
+  \"add\":\"$IP\",
+  \"port\":\"${port}\",
+  \"id\":\"${uid}\",
+  \"aid\":\"$alterid\",
+  \"net\":\"${network}\",
+  \"type\":\"none\",
+  \"host\":\"${domain}\",
+  \"path\":\"${wspath}\",
+  \"tls\":\"tls\"
 }"
         echo "vmess://$(echo -n "$raw" | base64 -w 0)"
         ;;
     "vless")
-        if [[ "$TLS" == "xtls" ]]; then
-            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=tcp&security=xtls&flow=${FLOW}&sni=${DOMAIN}#${REMARK}"
-        elif [[ "$NETWORK" == "ws" ]]; then
-            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=ws&security=tls&host=${DOMAIN}&path=${WSPATH}#${REMARK}"
+        if [[ "$xtls" = "true" ]]; then
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=xtls&flow=${FLOW}&sni=${DOMAIN}#${REMARK}"
+        elif [[ "$kcp" = "true" ]]; then
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=kcp&headerType=${HEADERTYPE}&seed=${MKCPSEED}#${REMARK}"
+        elif [[ "$ws" = "false" ]]; then
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
         else
-            echo "vless://${UUID}@${DOMAIN}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=ws&security=tls&host=${DOMAIN}&path=${WSPATH}#${REMARK}"
         fi
         ;;
     "trojan")
-        if [[ "$TLS" == "xtls" ]]; then
-            echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?flow=${FLOW}&encryption=none&type=tcp&security=xtls#${REMARK}"
+        if [[ "$xtls" = "true" ]]; then
+            echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?flow=${FLOW}&encryption=none&type=${NETWORK}&security=xtls#${REMARK}"
         else
-            echo "trojan://${PASSWORD}@${DOMAIN}:${PORT}?type=tcp&security=tls#${REMARK}"
+            echo "trojan://$PASSWORD@$DOMAIN:${PORT}?type=${NETWORK}&security=tls#${REMARK}"
         fi
         ;;
     *)
@@ -1839,7 +1845,7 @@ outputSocks5() {
         echo
         if [[ -n "$link2" ]]; then
             echo
-            echo "   [SOCKS二维码]:"
+            echo "   [SOCKS二维码如下，可用扫码工具/小火箭扫码导入]:"
             echo
             echo -n "$link2" | qrencode -o - -t utf8
             echo
@@ -1863,25 +1869,25 @@ showInfo() {
     colorEcho $BLUE " Xray配置信息："
     getConfigFileInfo
     echo
-    echo -e "   ${BLUE}协议:            ${PLAIN}${RED}${PROTOCOL}${PLAIN}"
-    echo -e "   ${BLUE}地址(address):   ${PLAIN}${RED}${DOMAIN}${PLAIN}"
-    echo -e "   ${BLUE}端口(port):      ${PLAIN}${RED}${PORT}${PLAIN}"
-    [[ -n "$UUID" ]]     && echo -e "   ${BLUE}ID(UUID):        ${PLAIN}${RED}${UUID}${PLAIN}"
-    [[ -n "$ALTERID" ]]  && echo -e "   ${BLUE}额外ID(AlterID): ${PLAIN}${RED}${ALTERID}${PLAIN}"
-    [[ -n "$SECURITY" ]] && echo -e "   ${BLUE}加密方式(security):${PLAIN}${RED}${SECURITY}${PLAIN}"    
-    [[ -n "$NETWORK" ]]  && echo -e "   ${BLUE}传输协议(network):${PLAIN}${RED}${NETWORK}${PLAIN}"
-    [[ -n "$TYPE" ]]     && echo -e "   ${BLUE}伪装类型(type):  ${PLAIN}${RED}${TYPE}${PLAIN}"
-    [[ -n "$HOST" ]]     && echo -e "   ${BLUE}伪装域名/主机名(Host)/SNI/peer名称:${PLAIN}${RED}${HOST}${PLAIN}"
-    [[ -n "$WSPATH" ]]   && echo -e "   ${BLUE}路径(path):      ${PLAIN}${RED}${WSPATH}${PLAIN}"
-    [[ -n "$TLS" ]]      && echo -e "   ${BLUE}安全层:          ${PLAIN}${RED}${TLS}${PLAIN}"
-    [[ -n "$FLOW" ]]     && echo -e "   ${BLUE}流控(flow):      ${PLAIN}${RED}${FLOW}${PLAIN}"
-    [[ -n "$PASSWORD" ]] && echo -e "   ${BLUE}密码:            ${PLAIN}${RED}${PASSWORD}${PLAIN}"
+    [[ -n "$UUID" ]] && echo -e "   ${BLUE}id(uuid): ${PLAIN}${RED}${UUID}${PLAIN}"
+    [[ -n "$ALTERID" ]] && echo -e "   ${BLUE}额外id(alterid): ${PLAIN}${RED}${ALTERID}${PLAIN}"
+    [[ -n "$FLOW" ]] && echo -e "   ${BLUE}流控(flow): ${PLAIN}${RED}${FLOW}${PLAIN}"
+    [[ -n "$SECURITY" ]] && echo -e "   ${BLUE}加密方式(security): ${PLAIN}${RED}${SECURITY}${PLAIN}"
+    [[ -n "$ENCRYPTION" ]] && echo -e "   ${BLUE}加密(encryption): ${PLAIN}${RED}${ENCRYPTION}${PLAIN}"
+    [[ -n "$NETWORK" ]] && echo -e "   ${BLUE}传输协议(network): ${PLAIN}${RED}${NETWORK}${PLAIN}"
+    [[ -n "$TYPE" ]] && echo -e "   ${BLUE}伪装类型(type): ${PLAIN}${RED}${TYPE}${PLAIN}"
+    [[ -n "$HEADERTYPE" ]] && echo -e "   ${BLUE}headerType: ${PLAIN}${RED}${HEADERTYPE}${PLAIN}"
+    [[ -n "$MKCPSEED" ]] && echo -e "   ${BLUE}mkcp seed: ${PLAIN}${RED}${MKCPSEED}${PLAIN}"
+    [[ -n "$HOST" ]] && echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称: ${PLAIN}${RED}${HOST}${PLAIN}"
+    [[ -n "$PATH" ]] && echo -e "   ${BLUE}路径(path): ${PLAIN}${RED}${PATH}${PLAIN}"
+    [[ -n "$TLS" ]] && echo -e "   ${BLUE}底层安全传输(tls): ${PLAIN}${RED}${TLS}${PLAIN}"
+    [[ -n "$REMARK" ]] && echo -e "   ${BLUE}备注(remark): ${PLAIN}${RED}${REMARK}${PLAIN}"
 
     echo
     local link
     link="$(gen_node_link)"
     prefix=${link%%:*}
-    echo -e "  ${BLUE}${prefix}链接：    ${PLAIN}${RED}${link}${PLAIN}"
+    echo -e "   ${BLUE}${prefix}链接：    ${PLAIN}${RED}${link}${PLAIN}"
     # 可选生成二维码
     outputSocks5
 }
