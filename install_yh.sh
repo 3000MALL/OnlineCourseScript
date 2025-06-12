@@ -1592,18 +1592,19 @@ restart() {
     start
 }
 
+find_main_inbound_index() {
+    jq -r '
+        .inbounds | to_entries[] | 
+        select((.value.protocol == "vmess") or 
+            (.value.protocol == "vless") or 
+            (.value.protocol == "trojan")) | 
+        .key
+    ' "$CONFIG_FILE" | head -n1
+}
+
 getConfigFileInfo() {
     local main_idx
     main_idx=$(find_main_inbound_index)
-    find_main_inbound_index() {
-        jq -r '
-            .inbounds | to_entries[] | 
-            select((.value.protocol == "vmess") or 
-                (.value.protocol == "vless") or 
-                (.value.protocol == "trojan")) | 
-            .key
-        ' "$CONFIG_FILE" | head -n1
-    }
     # 防无主协议情况
     [[ -z "$main_idx" ]] && {
         colorEcho $RED "未找到主协议(vmess/vless/trojan) inbound，配置文件格式可能异常"
