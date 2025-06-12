@@ -1880,7 +1880,7 @@ showInfo() {
     [[ -n "$HEADERTYPE" ]] && echo -e "   ${BLUE}headerType: ${PLAIN}${RED}${HEADERTYPE}${PLAIN}"
     [[ -n "$MKCPSEED" ]] && echo -e "   ${BLUE}mkcp seed: ${PLAIN}${RED}${MKCPSEED}${PLAIN}"
     [[ -n "$HOST" ]] && echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称: ${PLAIN}${RED}${HOST}${PLAIN}"
-    [[ -n "$PATH" ]] && echo -e "   ${BLUE}路径(path): ${PLAIN}${RED}${PATH}${PLAIN}"
+    [[ -n "$WSPATH" ]] && echo -e "   ${BLUE}路径(path): ${PLAIN}${RED}${WSPATH}${PLAIN}"
     [[ -n "$TLS" ]] && echo -e "   ${BLUE}底层安全传输(tls): ${PLAIN}${RED}${TLS}${PLAIN}"
     [[ -n "$REMARK" ]] && echo -e "   ${BLUE}备注(remark): ${PLAIN}${RED}${REMARK}${PLAIN}"
 
