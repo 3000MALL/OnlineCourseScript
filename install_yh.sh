@@ -209,101 +209,6 @@ archAffix() {
     esac
 }
 
-# 安装Xray核心
-installXrayCore() {
-    rm -rf /tmp/xray
-    mkdir -p /tmp/xray
-    
-    # 下载Xray
-    local arch=$(archAffix)
-    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-${arch}.zip"
-    colorEcho $BLUE "下载Xray: ${DOWNLOAD_LINK}"
-    
-    if ! curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip "$DOWNLOAD_LINK"; then
-        colorEcho $RED "下载Xray文件失败，请检查服务器网络设置"
-        return 1
-    fi
-
-    # 解压安装
-    unzip /tmp/xray/xray.zip -d /tmp/xray || {
-        colorEcho $RED "解压Xray文件失败"
-        return 1
-    }
-    
-    systemctl stop xray 2>/dev/null
-    mkdir -p /usr/local/etc/xray /usr/local/share/xray
-    cp /tmp/xray/xray /usr/local/bin
-    cp /tmp/xray/geo* /usr/local/share/xray
-    chmod +x /usr/local/bin/xray || {
-        colorEcho $RED "Xray安装失败"
-        return 1
-    }
-
-    return 0
-}
-
-# 安装主流程
-install() {
-    getData
-    $PMT clean all
-    [[ "$PMT" = "apt" ]] && $PMT update
-    
-    # 安装基础工具
-    if ! $CMD_INSTALL wget vim unzip tar gcc openssl net-tools; then
-        colorEcho $RED "基础工具安装失败"
-        return 1
-    fi
-    
-    # 安装Nginx
-    installNginx || return 1
-    
-    # 配置防火墙
-    setFirewall
-    
-    # 获取证书
-    if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
-        getCert || return 1
-    fi
-    
-    # 配置Nginx
-    configNginx
-    
-    # 安装Xray
-    colorEcho $BLUE "安装Xray..."
-    getVersion
-    local retval=$?
-    
-    if [[ $retval -eq 0 ]]; then
-        colorEcho $BLUE "Xray最新版 ${CUR_VER} 已经安装"
-    elif [[ $retval -eq 1 ]]; then
-        colorEcho $BLUE "安装Xray ${NEW_VER} ，架构: $(archAffix)"
-        installXrayCore || return 1
-        createXrayService
-    else
-        return 1
-    fi
-    
-    # 生成配置
-    configXray
-    
-    # 设置SELinux
-    setSelinux
-    
-    # 安装BBR
-    installBBR
-    
-    # 启动服务
-    start
-    
-    # 显示配置信息
-    showInfoWithSocks5
-    
-    # 需要重启提示
-    bbrReboot
-    
-    return 0
-}
-
 # 用户输入处理
 getData() {
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
@@ -918,6 +823,39 @@ installBBR() {
     fi
 }
 
+# 安装Xray核心
+installXrayCore() {
+    rm -rf /tmp/xray
+    mkdir -p /tmp/xray
+    
+    # 下载Xray
+    local arch=$(archAffix)
+    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-${arch}.zip"
+    colorEcho $BLUE "下载Xray: ${DOWNLOAD_LINK}"
+    
+    if ! curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip "$DOWNLOAD_LINK"; then
+        colorEcho $RED "下载Xray文件失败，请检查服务器网络设置"
+        return 1
+    fi
+
+    # 解压安装
+    unzip /tmp/xray/xray.zip -d /tmp/xray || {
+        colorEcho $RED "解压Xray文件失败"
+        return 1
+    }
+    
+    systemctl stop xray 2>/dev/null
+    mkdir -p /usr/local/etc/xray /usr/local/share/xray
+    cp /tmp/xray/xray /usr/local/bin
+    cp /tmp/xray/geo* /usr/local/share/xray
+    chmod +x /usr/local/bin/xray || {
+        colorEcho $RED "Xray安装失败"
+        return 1
+    }
+
+    return 0
+}
+
 # 创建Xray服务
 createXrayService() {
     cat > /etc/systemd/system/xray.service <<'EOF'
@@ -1045,13 +983,40 @@ EOF
 }
 
 # 生成VMESS配置
-generateVmessConfig() {
-    local uuid=$(cat '/proc/sys/kernel/random/uuid')
-    local alterid=${1:-0}
-    local network=${2:-"tcp"}
-    local security=${3:-""}
-    
-    cat > $CONFIG_FILE <<-EOF
+vmessConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    local alterid=`shuf -i50-80 -n1`
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 1,
+          "alterId": $alterid
+        }
+      ]
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+vmessKCPConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    local alterid=`shuf -i50-80 -n1`
+    cat > $CONFIG_FILE<<-EOF
 {
   "inbounds": [{
     "port": $PORT,
@@ -1066,7 +1031,16 @@ generateVmessConfig() {
       ]
     },
     "streamSettings": {
-      "network": "$network"
+        "network": "mkcp",
+        "kcpSettings": {
+            "uplinkCapacity": 100,
+            "downlinkCapacity": 100,
+            "congestion": true,
+            "header": {
+                "type": "$HEADER_TYPE"
+            },
+            "seed": "$SEED"
+        }
     }
   }],
   "outbounds": [{
@@ -1079,6 +1053,405 @@ generateVmessConfig() {
   }]
 }
 EOF
+}
+
+vmessTLSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "vmess",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 1,
+          "alterId": 0
+        }
+      ],
+      "disableInsecureEncryption": false
+    },
+    "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+            "serverName": "$DOMAIN",
+            "alpn": ["http/1.1", "h2"],
+            "certificates": [
+                {
+                    "certificateFile": "$CERT_FILE",
+                    "keyFile": "$KEY_FILE"
+                }
+            ]
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+vmessWSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $XPORT,
+    "listen": "127.0.0.1",
+    "protocol": "vmess",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 1,
+          "alterId": 0
+        }
+      ],
+      "disableInsecureEncryption": false
+    },
+    "streamSettings": {
+        "network": "ws",
+        "wsSettings": {
+            "path": "$WSPATH",
+            "headers": {
+                "Host": "$DOMAIN"
+            }
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+vlessTLSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "vless",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 0
+        }
+      ],
+      "decryption": "none",
+      "fallbacks": [
+          {
+              "alpn": "http/1.1",
+              "dest": 80
+          },
+          {
+              "alpn": "h2",
+              "dest": 81
+          }
+      ]
+    },
+    "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+            "serverName": "$DOMAIN",
+            "alpn": ["http/1.1", "h2"],
+            "certificates": [
+                {
+                    "certificateFile": "$CERT_FILE",
+                    "keyFile": "$KEY_FILE"
+                }
+            ]
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+vlessXTLSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "vless",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "flow": "$FLOW",
+          "level": 0
+        }
+      ],
+      "decryption": "none",
+      "fallbacks": [
+          {
+              "alpn": "http/1.1",
+              "dest": 80
+          },
+          {
+              "alpn": "h2",
+              "dest": 81
+          }
+      ]
+    },
+    "streamSettings": {
+        "network": "tcp",
+        "security": "xtls",
+        "xtlsSettings": {
+            "serverName": "$DOMAIN",
+            "alpn": ["http/1.1", "h2"],
+            "certificates": [
+                {
+                    "certificateFile": "$CERT_FILE",
+                    "keyFile": "$KEY_FILE"
+                }
+            ]
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+# 生成VLESS+WS+TLS配置
+vlessWSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $XPORT,
+    "listen": "127.0.0.1",
+    "protocol": "vless",
+    "settings": {
+        "clients": [
+            {
+                "id": "$uuid",
+                "level": 0
+            }
+        ],
+        "decryption": "none"
+    },
+    "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+            "path": "$WSPATH",
+            "headers": {
+                "Host": "$DOMAIN"
+            }
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+vlessKCPConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+  "inbounds": [{
+    "port": $PORT,
+    "protocol": "vless",
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 0
+        }
+      ],
+      "decryption": "none"
+    },
+    "streamSettings": {
+        "streamSettings": {
+            "network": "mkcp",
+            "kcpSettings": {
+                "uplinkCapacity": 100,
+                "downlinkCapacity": 100,
+                "congestion": true,
+                "header": {
+                    "type": "$HEADER_TYPE"
+                },
+                "seed": "$SEED"
+            }
+        }
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "settings": {}
+  },{
+    "protocol": "blackhole",
+    "settings": {},
+    "tag": "blocked"
+  }]
+}
+EOF
+}
+
+configXray() {
+    echo "正在生成Xray配置文件..."
+    mkdir -p /usr/local/xray
+    if [[ "$TROJAN" = "true" ]]; then
+        if [[ "$XTLS" = "true" ]]; then
+            trojanXTLSConfig
+        else
+            trojanConfig
+        fi
+        return 0
+    fi
+    elif [[ "$VLESS" = "false" ]]; then
+        # VMESS + kcp
+        if [[ "$KCP" = "true" ]]; then
+            vmessKCPConfig
+            return 0
+        fi
+        # VMESS
+        if [[ "$TLS" = "false" ]]; then
+            vmessConfig
+        elif [[ "$WS" = "false" ]]; then
+            # VMESS+TCP+TLS
+            vmessTLSConfig
+        # VMESS+WS+TLS
+        else
+            vmessWSConfig
+        fi
+    #VLESS
+    else
+        if [[ "$KCP" = "true" ]]; then
+            vlessKCPConfig
+            return 0
+        fi
+        # VLESS+TCP
+        if [[ "$WS" = "false" ]]; then
+            # VLESS+TCP+TLS
+            if [[ "$XTLS" = "false" ]]; then
+                vlessTLSConfig
+            # VLESS+TCP+XTLS
+            else
+                vlessXTLSConfig
+            fi
+        # VLESS+WS+TLS
+        else
+            vlessWSConfig
+        fi
+    fi
+    echo -e "${GREEN}Xray配置文件生成成功${PLAIN}"
+}
+
+# 安装主流程
+install() {
+    getData
+    $PMT clean all
+    [[ "$PMT" = "apt" ]] && $PMT update
+    
+    # 安装基础工具
+    if ! $CMD_INSTALL wget vim unzip tar gcc openssl net-tools; then
+        colorEcho $RED "基础工具安装失败"
+        return 1
+    fi
+    if [[ "$PMT" = "apt" ]]; then
+        if ! $CMD_INSTALL libssl-dev g++; then
+            colorEcho $RED "编译环境安装失败"
+            return 1
+        fi
+    elif [[ "$PMT" = "yum" ]]; then
+        if ! $CMD_INSTALL gcc-c++ openssl-devel; then
+            colorEcho $RED "编译环境安装失败"
+            return 1
+        fi
+    fi
+
+    # 安装Nginx
+    installNginx || return 1
+    
+    # 配置防火墙
+    setFirewall
+    
+    # 获取证书
+    if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
+        getCert || return 1
+    fi
+    
+    # 配置Nginx
+    configNginx
+    
+    # 安装Xray
+    colorEcho $BLUE "安装Xray..."
+    getVersion
+    RETVAL=$?
+    
+    if [[ $RETVAL -eq 0 ]]; then
+        colorEcho $BLUE "Xray最新版 ${CUR_VER} 已经安装"
+    elif [[ $RETVAL -eq 1 ]]; then
+        colorEcho $BLUE "安装Xray ${NEW_VER} ，架构: $(archAffix)"
+        echo "当前版本：${RETVAL}"
+        installXrayCore || return 1
+        createXrayService || return 1
+    else
+        return 1
+    fi
+    
+    # 生成配置
+    configXray
+    
+    # 设置SELinux
+    setSelinux
+    
+    # 安装BBR
+    installBBR
+    
+    # 启动服务
+    start
+    
+    # 显示配置信息
+    showInfoWithSocks5
+    
+    # 需要重启提示
+    bbrReboot
+    
+    return 0
 }
 
 # BBR重启提示
@@ -1102,9 +1475,9 @@ update() {
     }
 
     getVersion
-    local retval=$?
+    RETVAL=$?
     
-    case $retval in
+    case $RETVAL in
         0)
             colorEcho $BLUE "Xray最新版 ${CUR_VER} 已经安装"
             ;;
