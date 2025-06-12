@@ -1833,7 +1833,7 @@ outputSocks5() {
     # 生成二维码
     if command -v qrencode >/dev/null 2>&1; then
         echo
-        echo "   [二维码如下，可用扫码工具/小火箭扫码导入]:"
+        echo "   [${prefix}二维码如下，可用扫码工具/小火箭扫码导入]:"
         echo
         echo -n "$link" | qrencode -o - -t utf8
         echo
@@ -1863,23 +1863,25 @@ showInfo() {
     colorEcho $BLUE " Xray配置信息："
     getConfigFileInfo
     echo
-    echo -e "   ${BLUE}协议:        ${PLAIN}${RED}${PROTOCOL}${PLAIN}"
-    echo -e "   ${BLUE}地址(address):${PLAIN}${RED}${DOMAIN}${PLAIN}"
-    echo -e "   ${BLUE}端口(port):   ${PLAIN}${RED}${PORT}${PLAIN}"
-    [[ -n "$UUID" ]] && echo -e "   ${BLUE}ID(UUID):         ${PLAIN}${RED}${UUID}${PLAIN}"
-    [[ -n "$ALTERID" ]] && echo -e "   ${BLUE}额外ID(AlterID):      ${PLAIN}${RED}${ALTERID}${PLAIN}"
-    [[ -n "$SECURITY" ]] && echo -e "   ${BLUE}加密方式(security):      ${PLAIN}${RED}${SECURITY}${PLAIN}"    
-    [[ -n "$NETWORK" ]] && echo -e "   ${BLUE}传输协议(network):${PLAIN}${RED}${NETWORK}${PLAIN}"
-    [[ -n "$TYPE" ]] && echo -e "   ${BLUE}伪装类型(type):${PLAIN}${RED}${TYPE}${PLAIN}"
-    [[ -n "$HOST" ]] && echo -e "   ${BLUE}伪装域名/主机名(Host)/SNI/peer名称:         ${PLAIN}${RED}${HOST}${PLAIN}"
-    [[ -n "$WSPATH" ]] && echo -e "   ${BLUE}路径(path):   ${PLAIN}${RED}${WSPATH}${PLAIN}"
-    [[ -n "$TLS" ]]   && echo -e "   ${BLUE}安全层:       ${PLAIN}${RED}${TLS}${PLAIN}"
-    [[ -n "$FLOW" ]]  && echo -e "   ${BLUE}流控(flow):   ${PLAIN}${RED}${FLOW}${PLAIN}"
-    [[ -n "$PASSWORD" ]] && echo -e "   ${BLUE}密码:         ${PLAIN}${RED}${PASSWORD}${PLAIN}"
+    echo -e "   ${BLUE}协议:            ${PLAIN}${RED}${PROTOCOL}${PLAIN}"
+    echo -e "   ${BLUE}地址(address):   ${PLAIN}${RED}${DOMAIN}${PLAIN}"
+    echo -e "   ${BLUE}端口(port):      ${PLAIN}${RED}${PORT}${PLAIN}"
+    [[ -n "$UUID" ]]     && echo -e "   ${BLUE}ID(UUID):        ${PLAIN}${RED}${UUID}${PLAIN}"
+    [[ -n "$ALTERID" ]]  && echo -e "   ${BLUE}额外ID(AlterID): ${PLAIN}${RED}${ALTERID}${PLAIN}"
+    [[ -n "$SECURITY" ]] && echo -e "   ${BLUE}加密方式(security):${PLAIN}${RED}${SECURITY}${PLAIN}"    
+    [[ -n "$NETWORK" ]]  && echo -e "   ${BLUE}传输协议(network):${PLAIN}${RED}${NETWORK}${PLAIN}"
+    [[ -n "$TYPE" ]]     && echo -e "   ${BLUE}伪装类型(type):  ${PLAIN}${RED}${TYPE}${PLAIN}"
+    [[ -n "$HOST" ]]     && echo -e "   ${BLUE}伪装域名/主机名(Host)/SNI/peer名称:${PLAIN}${RED}${HOST}${PLAIN}"
+    [[ -n "$WSPATH" ]]   && echo -e "   ${BLUE}路径(path):      ${PLAIN}${RED}${WSPATH}${PLAIN}"
+    [[ -n "$TLS" ]]      && echo -e "   ${BLUE}安全层:          ${PLAIN}${RED}${TLS}${PLAIN}"
+    [[ -n "$FLOW" ]]     && echo -e "   ${BLUE}流控(flow):      ${PLAIN}${RED}${FLOW}${PLAIN}"
+    [[ -n "$PASSWORD" ]] && echo -e "   ${BLUE}密码:            ${PLAIN}${RED}${PASSWORD}${PLAIN}"
+
     echo
     local link
     link="$(gen_node_link)"
-    echo -e "  ${BLUE}节点链接：    ${PLAIN}${RED}${link}${PLAIN}"
+    prefix=${link%%:*}
+    echo -e "  ${BLUE}${prefix}链接：    ${PLAIN}${RED}${link}${PLAIN}"
     # 可选生成二维码
     outputSocks5
 }
