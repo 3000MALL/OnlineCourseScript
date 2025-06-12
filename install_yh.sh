@@ -1722,16 +1722,16 @@ getConfigFileInfo() {
     # 用 jq 提取，不再多段 grep
     PROTOCOL=$(jq -r '.inbounds[0].protocol // empty' "$CONFIG_FILE")
     UUID=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
+    PROTOCOL=$(jq -r '.inbounds[0].protocol // empty' "$CONFIG_FILE")
+    UUID=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
+    PASSWORD=$(jq -r '.inbounds[0].settings.clients[0].password // empty' "$CONFIG_FILE")
     ALTERID=$(jq -r '.inbounds[0].settings.clients[0].alterId // empty' "$CONFIG_FILE")
     FLOW=$(jq -r '.inbounds[0].settings.clients[0].flow // empty' "$CONFIG_FILE")
-    SECURITY=$(jq -r '.inbounds[0].settings.clients[0].security // empty' "$CONFIG_FILE")   
-    ENCRYPTION=$(jq -r '.inbounds[0].settings.clients[0].encryption // empty' "$CONFIG_FILE")  
-    NETWORK=$(jq -r '.inbounds[0].streamSettings.network // empty' "$CONFIG_FILE")
-    TYPE=$(jq -r '.inbounds[0].streamSettings.***type // empty' "$CONFIG_FILE")  
-    HEADERTYPE=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
-    MKCPSEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
+    NETWORK=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
     HOST=$(jq -r '.inbounds[0].streamSettings.wsSettings.headers.Host // empty' "$CONFIG_FILE")
     WSPATH=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
+    TYPE=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
+    SEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
     TLS=$(jq -r '.inbounds[0].streamSettings.security // empty' "$CONFIG_FILE")
     DOMAIN="$HOST"
     [[ -z "$DOMAIN" ]] && DOMAIN=$(jq -r '.inbounds[0].streamSettings.tlsSettings.serverName // empty' "$CONFIG_FILE")
@@ -1772,7 +1772,7 @@ gen_node_link() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
         raw="{
     \"v\":\"2\",
-    \"ps\":\"$REMARK\",
+    \"ps\":\"\",
     \"add\":\"$IP\",
     \"port\":\"$PORT\",
     \"id\":\"$UUID\",
@@ -1789,7 +1789,7 @@ gen_node_link() {
         if [[ "$xtls" = "true" ]]; then
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=xtls&flow=${FLOW}&sni=${DOMAIN}#${REMARK}"
         elif [[ "$kcp" = "true" ]]; then
-            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=kcp&headerType=${HEADERTYPE}&seed=${MKCPSEED}#${REMARK}"
+            echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=kcp&headerType=${TYPE}&seed=${SEED}#${REMARK}"
         elif [[ "$ws" = "false" ]]; then
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=tcp&security=tls&sni=${DOMAIN}#${REMARK}"
         else
@@ -1870,6 +1870,8 @@ showInfo() {
     colorEcho $BLUE " Xray配置信息："
     getConfigFileInfo
     echo
+    echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
+    echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
     [[ -n "$UUID" ]] && echo -e "   ${BLUE}id(uuid): ${PLAIN}${RED}${UUID}${PLAIN}"
     [[ -n "$ALTERID" ]] && echo -e "   ${BLUE}额外id(alterid): ${PLAIN}${RED}${ALTERID}${PLAIN}"
     [[ -n "$FLOW" ]] && echo -e "   ${BLUE}流控(flow): ${PLAIN}${RED}${FLOW}${PLAIN}"
@@ -1877,8 +1879,7 @@ showInfo() {
     [[ -n "$ENCRYPTION" ]] && echo -e "   ${BLUE}加密(encryption): ${PLAIN}${RED}${ENCRYPTION}${PLAIN}"
     [[ -n "$NETWORK" ]] && echo -e "   ${BLUE}传输协议(network): ${PLAIN}${RED}${NETWORK}${PLAIN}"
     [[ -n "$TYPE" ]] && echo -e "   ${BLUE}伪装类型(type): ${PLAIN}${RED}${TYPE}${PLAIN}"
-    [[ -n "$HEADERTYPE" ]] && echo -e "   ${BLUE}headerType: ${PLAIN}${RED}${HEADERTYPE}${PLAIN}"
-    [[ -n "$MKCPSEED" ]] && echo -e "   ${BLUE}mkcp seed: ${PLAIN}${RED}${MKCPSEED}${PLAIN}"
+    [[ -n "$SEED" ]] && echo -e "   ${BLUE}mkcp seed: ${PLAIN}${RED}${SEED}${PLAIN}"
     [[ -n "$HOST" ]] && echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称: ${PLAIN}${RED}${HOST}${PLAIN}"
     [[ -n "$WSPATH" ]] && echo -e "   ${BLUE}路径(path): ${PLAIN}${RED}${WSPATH}${PLAIN}"
     [[ -n "$TLS" ]] && echo -e "   ${BLUE}底层安全传输(tls): ${PLAIN}${RED}${TLS}${PLAIN}"
