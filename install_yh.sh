@@ -1794,6 +1794,7 @@ gen_node_link() {
         else
             echo "vless://${UUID}@${IP}:${PORT}?encryption=none&type=ws&security=tls&host=${DOMAIN}&path=${WSPATH}#${REMARK}"
         fi
+        echo "${xtls}"
         ;;
     "trojan")
         if [[ "$xtls" = "true" ]]; then
