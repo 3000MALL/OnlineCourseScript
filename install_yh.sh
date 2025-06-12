@@ -1744,7 +1744,7 @@ getConfigFileInfo() {
             PORT=$(awk '/listen.*ssl/{print $2}' ${NGINX_CONF_PATH}${DOMAIN}.conf 2>/dev/null | head -1)
         fi
         [[ -z "$PORT" ]] && PORT=443
-        echo "如果${PORT}"
+        echo "如果${NETWORK}+${PORT}"
     else
         PORT=$(jq -r '.inbounds[0].port' "$CONFIG_FILE")
         echo "否则${PORT}"
