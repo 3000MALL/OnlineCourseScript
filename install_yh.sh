@@ -1767,7 +1767,7 @@ qrcode() { [[ -n "$1" && $(command -v qrencode) ]] && echo -n "$1" | qrencode -o
 
 outputMainLink() {
     local link=""
-    local remark="${domain:-$IP}"
+    local remark="${XRAY_REMARK:-$IP}"
 
     case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
         vmess:ws:tls)
