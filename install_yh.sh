@@ -1773,7 +1773,7 @@ gen_node_link() {
         raw="{
     \"v\":\"2\",
     \"ps\":\"$REMARK\",
-    \"add\":\"$DOMAIN\",
+    \"add\":\"$IP\",
     \"port\":\"$PORT\",
     \"id\":\"$UUID\",
     \"aid\":\"${ALTERID:-0}\",
