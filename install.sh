@@ -1428,15 +1428,13 @@ install() {
         colorEcho $BLUE "安装Xray ${NEW_VER} ，架构: $(archAffix)"
         echo "当前版本：${RETVAL}"
         installXrayCore || return 1
+        createXrayService || return 1
     else
         return 1
     fi
     
     # 生成配置
     configXray
-
-    # 创建Xray服务
-    createXrayService
     
     # 设置SELinux
     setSelinux
