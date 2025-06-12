@@ -1592,63 +1592,6 @@ restart() {
     start
 }
 
-find_main_inbound_index() {
-    jq -r '
-        .inbounds | to_entries[] | 
-        select((.value.protocol == "vmess") or 
-            (.value.protocol == "vless") or 
-            (.value.protocol == "trojan")) | 
-        .key
-    ' "$CONFIG_FILE" | head -n1
-}
-
-getConfigFileInfo() {
-    local main_idx
-    main_idx=$(find_main_inbound_index)
-    # 防无主协议情况
-    [[ -z "$main_idx" ]] && {
-        colorEcho $RED "未找到主协议(vmess/vless/trojan) inbound，配置文件格式可能异常"
-        return 1
-    }
-    protocol=$(jq -r ".inbounds[$main_idx].protocol // empty" "$CONFIG_FILE")
-    uid=$(jq -r ".inbounds[$main_idx].settings.clients[0].id // empty" "$CONFIG_FILE")
-    alterid=$(jq -r ".inbounds[$main_idx].settings.clients[0].alterId // empty" "$CONFIG_FILE")
-    password=$(jq -r ".inbounds[$main_idx].settings.clients[0].password // empty" "$CONFIG_FILE")
-    flow=$(jq -r ".inbounds[$main_idx].settings.clients[0].flow // empty" "$CONFIG_FILE")
-    port=$(jq -r ".inbounds[$main_idx].port // empty" "$CONFIG_FILE")
-    network=$(jq -r ".inbounds[$main_idx].streamSettings.network // \"tcp\"" "$CONFIG_FILE")
-    security=$(jq -r ".inbounds[$main_idx].streamSettings.security // \"none\"" "$CONFIG_FILE")
-    domain=$(jq -r "
-      .inbounds[$main_idx].streamSettings.tlsSettings.serverName //
-      .inbounds[$main_idx].streamSettings.xtlsSettings.serverName //
-      .inbounds[$main_idx].streamSettings.wsSettings.headers.Host // empty
-    " "$CONFIG_FILE")
-    wspath=$(jq -r ".inbounds[$main_idx].streamSettings.wsSettings.path // empty" "$CONFIG_FILE")
-    type=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.header.type // empty" "$CONFIG_FILE")
-    seed=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.seed // empty" "$CONFIG_FILE")
-
-    # 协议判断 - 用于下步输出识别
-    vless="false"
-    trojan="false"
-    ws="false"
-    kcp="false"
-    xtls="false"
-    tls="false"
-
-    [[ "$protocol" = "vless" ]] && vless="true"
-    [[ "$protocol" = "trojan" ]] && trojan="true"
-    [[ "$network" = "ws" ]] && ws="true"
-    [[ "$network" = "mkcp" ]] && kcp="true"
-    [[ "$security" = "xtls" ]] && xtls="true"
-    [[ "$security" = "tls" ]] && tls="true"
-}
-
-showKV() {  # showKV <name> <value>
-    [[ -n "$2" ]] && echo -e "   ${BLUE}$1:${PLAIN} ${RED}$2${PLAIN}"
-}
-
-qrcode() { [[ -n "$1" && $(command -v qrencode) ]] && echo -n "$1" | qrencode -o - -t utf8; }
-
 # ## socks5 install function start
 installSocks5CheckAndInstall() {
     if [[ ! -f $CONFIG_FILE ]]; then
@@ -1765,11 +1708,68 @@ addSocks5Inbound() {
     fi
 }
 
+find_main_inbound_index() {
+    jq -r '
+        .inbounds | to_entries[] | 
+        select((.value.protocol == "vmess") or 
+            (.value.protocol == "vless") or 
+            (.value.protocol == "trojan")) | 
+        .key
+    ' "$CONFIG_FILE" | head -n1
+}
+
+getConfigFileInfo() {
+    local main_idx
+    main_idx=$(find_main_inbound_index)
+    [[ -z "$main_idx" ]] && {
+        colorEcho $RED "未找到主协议(vmess/vless/trojan) inbound，配置文件格式可能异常"
+        return 1
+    }
+    XRAY_PROTOCOL=$(jq -r ".inbounds[$main_idx].protocol // empty" "$CONFIG_FILE")
+    XRAY_UUID=$(jq -r ".inbounds[$main_idx].settings.clients[0].id // empty" "$CONFIG_FILE")
+    XRAY_ALTERID=$(jq -r ".inbounds[$main_idx].settings.clients[0].alterId // empty" "$CONFIG_FILE")
+    XRAY_PASSWORD=$(jq -r ".inbounds[$main_idx].settings.clients[0].password // empty" "$CONFIG_FILE")
+    XRAY_FLOW=$(jq -r ".inbounds[$main_idx].settings.clients[0].flow // empty" "$CONFIG_FILE")
+    XRAY_PORT=$(jq -r ".inbounds[$main_idx].port // empty" "$CONFIG_FILE")
+    XRAY_NETWORK=$(jq -r ".inbounds[$main_idx].streamSettings.network // \"tcp\"" "$CONFIG_FILE")
+    XRAY_SECURITY=$(jq -r ".inbounds[$main_idx].streamSettings.security // \"none\"" "$CONFIG_FILE")
+    XRAY_SERVERNAME=$(jq -r "
+        .inbounds[$main_idx].streamSettings.tlsSettings.serverName //
+        .inbounds[$main_idx].streamSettings.xtlsSettings.serverName //
+        .inbounds[$main_idx].streamSettings.wsSettings.headers.Host // empty
+    " "$CONFIG_FILE")
+    XRAY_WSPATH=$(jq -r ".inbounds[$main_idx].streamSettings.wsSettings.path // empty" "$CONFIG_FILE")
+    XRAY_TYPE=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.header.type // empty" "$CONFIG_FILE")
+    XRAY_SEED=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.seed // empty" "$CONFIG_FILE")
+    XRAY_REMARK="${XRAY_SERVERNAME:-$IP}"
+
+    # 协议判断 - 用于下步输出识别
+    vless="false"
+    trojan="false"
+    ws="false"
+    kcp="false"
+    xtls="false"
+    tls="false"
+
+    [[ "$protocol" = "vless" ]] && vless="true"
+    [[ "$protocol" = "trojan" ]] && trojan="true"
+    [[ "$network" = "ws" ]] && ws="true"
+    [[ "$network" = "mkcp" ]] && kcp="true"
+    [[ "$security" = "xtls" ]] && xtls="true"
+    [[ "$security" = "tls" ]] && tls="true"
+}
+
+showKV() {  # showKV <name> <value>
+    [[ -n "$2" ]] && echo -e "   ${BLUE}$1:${PLAIN} ${RED}$2${PLAIN}"
+}
+
+qrcode() { [[ -n "$1" && $(command -v qrencode) ]] && echo -n "$1" | qrencode -o - -t utf8; }
+
 outputMainLink() {
     local link=""
     local remark="${domain:-$IP}"
 
-    case "$protocol:$network:$security" in
+    case "$XRAY_PROTOCOL:$XRAY_NETWORK:$XRAY_SECURITY" in
         vmess:ws:tls)
             local vmess_json="{\"v\":\"2\",\"ps\":\"$remark\",\"add\":\"${IP}\",\"port\":\"${port}\",\"id\":\"${uid}\",\"aid\":\"${alterid}\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${wspath}\",\"tls\":\"tls\"}"
             link="vmess://$(echo -n "$vmess_json" | base64 -w0)"
