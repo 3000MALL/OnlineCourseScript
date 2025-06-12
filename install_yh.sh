@@ -823,43 +823,6 @@ installBBR() {
     fi
 }
 
-# 安装Xray
-installXray() {
-    rm -rf /tmp/xray
-    mkdir -p /tmp/xray
-    
-    # 下载Xray
-    DOWNLOAD_LINK="${V6_PROXY}https://github.com/XTLS/Xray-core/releases/download/${NEW_VER}/Xray-linux-$(archAffix).zip"
-    colorEcho $BLUE "下载Xray: ${DOWNLOAD_LINK}"
-    
-    if ! curl -L -H "Cache-Control: no-cache" -o /tmp/xray/xray.zip "$DOWNLOAD_LINK"; then
-        colorEcho $RED "下载Xray文件失败，请检查服务器网络设置"
-        exit 1
-    fi
-
-    # 停止服务
-    systemctl stop xray &>/dev/null
-    
-    # 解压安装
-    mkdir -p /usr/local/etc/xray /usr/local/share/xray
-    unzip /tmp/xray/xray.zip -d /tmp/xray || {
-        colorEcho $RED "解压Xray文件失败"
-        exit 1
-    }
-    
-    cp /tmp/xray/xray /usr/local/bin
-    cp /tmp/xray/geo* /usr/local/share/xray
-    chmod +x /usr/local/bin/xray || {
-        colorEcho $RED "Xray安装失败"
-        exit 1
-    }
-
-    # 创建服务文件
-    cat > /etc/systemd/system/xray.service <<'EOF'
-[Unit]
-Description=Xray Service
-Documentation=https://github.com/xtls https://300 
-
 # 安装Xray核心
 installXrayCore() {
     rm -rf /tmp/xray
