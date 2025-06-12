@@ -1341,7 +1341,7 @@ configXray() {
         fi
         return 0
     fi
-    elif [[ "$VLESS" = "false" ]]; then
+    if [[ "$VLESS" = "false" ]]; then
         # VMESS + kcp
         if [[ "$KCP" = "true" ]]; then
             vmessKCPConfig
