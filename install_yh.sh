@@ -1769,19 +1769,19 @@ getConfigFileInfo() {
 gen_node_link() {
     case "$PROTOCOL" in
     "vmess")
-    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-        raw="{
-    \"v\":\"2\",
-    \"ps\":\"\",
-    \"add\":\"$IP\",
-    \"port\":\"$PORT\",
-    \"id\":\"$UUID\",
-    \"aid\":\"${ALTERID:-0}\",
-    \"net\":\"$NETWORK\",
-    \"type\":\"$TYPE\",
-    \"host\":\"$DOMAIN\",
-    \"path\":\"$WSPATH\",
-    \"tls\":\"${TLS/tls/tls}\"
+    #local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    raw="{
+  \"v\":\"2\",
+  \"ps\":\"\",
+  \"add\":\"$IP\",
+  \"port\":\"$PORT\",
+  \"id\":\"$UUID\",
+  \"aid\":\"${ALTERID:-0}\",
+  \"net\":\"$NETWORK\",
+  \"type\":\"$TYPE\",
+  \"host\":\"$DOMAIN\",
+  \"path\":\"$WSPATH\",
+  \"tls\":\"${TLS/tls/tls}\"
 }"
         echo "vmess://$(echo -n "$raw" | base64 -w 0)"
         ;;
@@ -1871,7 +1871,7 @@ showInfo() {
     getConfigFileInfo
     echo
     echo -e "   ${BLUE}IP(address): ${PLAIN} ${RED}${IP}${PLAIN}"
-    echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${port}${PLAIN}"
+    echo -e "   ${BLUE}端口(port)：${PLAIN}${RED}${PORT}${PLAIN}"
     [[ -n "$UUID" ]] && echo -e "   ${BLUE}id(uuid): ${PLAIN}${RED}${UUID}${PLAIN}"
     [[ -n "$ALTERID" ]] && echo -e "   ${BLUE}额外id(alterid): ${PLAIN}${RED}${ALTERID}${PLAIN}"
     [[ -n "$FLOW" ]] && echo -e "   ${BLUE}流控(flow): ${PLAIN}${RED}${FLOW}${PLAIN}"
