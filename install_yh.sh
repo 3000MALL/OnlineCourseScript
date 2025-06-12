@@ -1557,7 +1557,7 @@ start() {
     systemctl restart xray
     sleep 2
     
-    local port=$(grep port $CONFIG_FILE | head -n 1 | cut -d: -f2 | tr -d \",' ')
+    port=$(grep port $CONFIG_FILE | head -n 1 | cut -d: -f2 | tr -d \",' ')
     if ss -nutlp | grep -q ":${port} .*xray"; then
         colorEcho $GREEN "Xray启动成功"
     else
@@ -1578,27 +1578,44 @@ stop() {
 
 # 重启服务
 restart() {
+    if [[ ! -f $CONFIG_FILE ]] || [[ ! -f /usr/local/bin/xray ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
+    res=`status`
+    if [[ $res -lt 2 ]]; then
+        colorEcho $RED " Xray未安装，请先安装！"
+        return
+    fi
+
+    stop
     start
 }
 
 getConfigFileInfo() {
-    protocol=$(jq -r '.inbounds[0].protocol' "$CONFIG_FILE")
-    uid=$(jq -r '.inbounds[0].settings.clients[0].id // empty' "$CONFIG_FILE")
-    alterid=$(jq -r '.inbounds[0].settings.clients[0].alterId // empty' "$CONFIG_FILE")
-    password=$(jq -r '.inbounds[0].settings.clients[0].password // empty' "$CONFIG_FILE")
-    flow=$(jq -r '.inbounds[0].settings.clients[0].flow // empty' "$CONFIG_FILE")
-    port=$(jq -r '.inbounds[0].port' "$CONFIG_FILE")
-    # network可能多级
-    network=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
-    security=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
-    domain=$(jq -r '
-      .inbounds[0].streamSettings.tlsSettings.serverName // 
-      .inbounds[0].streamSettings.xtlsSettings.serverName // 
-      .inbounds[0].streamSettings.wsSettings.headers.Host // empty
-    ' "$CONFIG_FILE")
-    wspath=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
-    type=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
-    seed=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
+    local main_idx
+    main_idx=$(find_main_inbound_index)
+    # 防无主协议情况
+    [[ -z "$main_idx" ]] && {
+        colorEcho $RED "未找到主协议(vmess/vless/trojan) inbound，配置文件格式可能异常"
+        return 1
+    }
+    protocol=$(jq -r ".inbounds[$main_idx].protocol // empty" "$CONFIG_FILE")
+    uid=$(jq -r ".inbounds[$main_idx].settings.clients[0].id // empty" "$CONFIG_FILE")
+    alterid=$(jq -r ".inbounds[$main_idx].settings.clients[0].alterId // empty" "$CONFIG_FILE")
+    password=$(jq -r ".inbounds[$main_idx].settings.clients[0].password // empty" "$CONFIG_FILE")
+    flow=$(jq -r ".inbounds[$main_idx].settings.clients[0].flow // empty" "$CONFIG_FILE")
+    port=$(jq -r ".inbounds[$main_idx].port // empty" "$CONFIG_FILE")
+    network=$(jq -r ".inbounds[$main_idx].streamSettings.network // \"tcp\"" "$CONFIG_FILE")
+    security=$(jq -r ".inbounds[$main_idx].streamSettings.security // \"none\"" "$CONFIG_FILE")
+    domain=$(jq -r "
+      .inbounds[$main_idx].streamSettings.tlsSettings.serverName //
+      .inbounds[$main_idx].streamSettings.xtlsSettings.serverName //
+      .inbounds[$main_idx].streamSettings.wsSettings.headers.Host // empty
+    " "$CONFIG_FILE")
+    wspath=$(jq -r ".inbounds[$main_idx].streamSettings.wsSettings.path // empty" "$CONFIG_FILE")
+    type=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.header.type // empty" "$CONFIG_FILE")
+    seed=$(jq -r ".inbounds[$main_idx].streamSettings.kcpSettings.seed // empty" "$CONFIG_FILE")
 
     # 协议判断 - 用于下步输出识别
     vless="false"
