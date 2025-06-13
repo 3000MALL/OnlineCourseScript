@@ -31,6 +31,7 @@ OS=$(hostnamectl | grep -i system | cut -d: -f2 | tr -d '[:space:]')
 NGINX_CONF_PATH="/etc/nginx/conf.d/"
 V6_PROXY=""
 BT="false"
+current_timezone=$(cat /etc/timezone)
 
 # 初始化变量
 VLESS="false"
@@ -1754,7 +1755,7 @@ getConfigFileInfo() {
             ;;
         "vless")
             TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
-            REMARK="$DOMAIN"
+            REMARK="$current_timezone $DOMAIN"
             ENCRYPTION="none"
             ;;
         "vmess")
@@ -1891,6 +1892,7 @@ showInfo() {
     link="$(gen_node_link)"
     prefix=${link%%:*}
     echo -e "   ${BLUE}${prefix}链接: ${PLAIN}${RED}${link}${PLAIN}"
+    echo "当前时区是: $current_timezone"
     # 可选生成二维码
     outputSocks5
 }
