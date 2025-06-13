@@ -83,9 +83,9 @@ checkSystem() {
     # 更新软件源
     colorEcho $BLUE "正在更新软件源..."
     if [[ $PMT == "yum" ]]; then
-        yum makecache fast -y || { colorEcho $RED "软件源更新失败"; exit 1; }
+        yum makecache fast -y
     else
-        apt update -y || { colorEcho $RED "软件源更新失败"; exit 1; }
+        apt update -y
     fi
 
     # 检查并安装必要工具
