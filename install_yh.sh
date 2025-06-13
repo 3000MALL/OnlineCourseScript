@@ -1880,7 +1880,7 @@ showInfo() {
     [[ -n "$NETWORK" ]] && echo -e "   ${BLUE}传输协议(network): ${PLAIN}${RED}${NETWORK}${PLAIN}"
     [[ -n "$TYPE" ]] && echo -e "   ${BLUE}伪装类型(type): ${PLAIN}${RED}${TYPE}${PLAIN}"
     [[ -n "$SEED" ]] && echo -e "   ${BLUE}mkcp seed: ${PLAIN}${RED}${SEED}${PLAIN}"
-    [[ -n "$HOST" ]] && echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称: ${PLAIN}${RED}${HOST}${PLAIN}"
+    [[ -n "$DOMAIN" ]] && echo -e "   ${BLUE}伪装域名/主机名(host)/SNI/peer名称: ${PLAIN}${RED}${HOST}${PLAIN}"
     [[ -n "$WSPATH" ]] && echo -e "   ${BLUE}路径(path): ${PLAIN}${RED}${WSPATH}${PLAIN}"
     [[ -n "$TLS" ]] && echo -e "   ${BLUE}底层安全传输(tls): ${PLAIN}${RED}${TLS}${PLAIN}"
     [[ -n "$REMARK" ]] && echo -e "   ${BLUE}备注(remark): ${PLAIN}${RED}${REMARK}${PLAIN}"
