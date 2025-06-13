@@ -1730,7 +1730,7 @@ getConfigFileInfo() {
     NETWORK=$(jq -r '.inbounds[0].streamSettings.network // "tcp"' "$CONFIG_FILE")
     HOST=$(jq -r '.inbounds[0].streamSettings.wsSettings.headers.Host // empty' "$CONFIG_FILE")
     WSPATH=$(jq -r '.inbounds[0].streamSettings.wsSettings.path // empty' "$CONFIG_FILE")
-    TYPE=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // empty' "$CONFIG_FILE")
+    TYPE=$(jq -r '.inbounds[0].streamSettings.kcpSettings.header.type // "none"' "$CONFIG_FILE")
     SEED=$(jq -r '.inbounds[0].streamSettings.kcpSettings.seed // empty' "$CONFIG_FILE")
     TLS=$(jq -r '.inbounds[0].streamSettings.security // empty' "$CONFIG_FILE")
     DOMAIN="$HOST"
@@ -1754,6 +1754,7 @@ getConfigFileInfo() {
             ;;
         "vless")
             TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
+            REMARK="$DOMAIN"
             ;;
         "vmess")
             if [[ "$NETWORK" == "ws" ]]; then
@@ -1763,7 +1764,6 @@ getConfigFileInfo() {
             fi
             ;;
     esac
-    #REMARK="$DOMAIN"
 }
 
 gen_node_link() {
