@@ -1755,10 +1755,12 @@ getConfigFileInfo() {
         "vless")
             TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
             REMARK="$DOMAIN"
+            ENCRYPTION="none"
             ;;
         "vmess")
             if [[ "$NETWORK" == "ws" ]]; then
                 TLS="tls"
+                ENCRYPTION="auto"
             else
                 TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
             fi
