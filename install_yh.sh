@@ -1892,7 +1892,6 @@ showInfo() {
     link="$(gen_node_link)"
     prefix=${link%%:*}
     echo -e "   ${BLUE}${prefix}链接: ${PLAIN}${RED}${link}${PLAIN}"
-    echo "当前时区是: $current_timezone"
     # 可选生成二维码
     outputSocks5
 }
