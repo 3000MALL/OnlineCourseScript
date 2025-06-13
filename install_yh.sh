@@ -31,7 +31,6 @@ OS=$(hostnamectl | grep -i system | cut -d: -f2 | tr -d '[:space:]')
 NGINX_CONF_PATH="/etc/nginx/conf.d/"
 V6_PROXY=""
 BT="false"
-current_timezone=$(cat /etc/timezone)
 
 # 初始化变量
 VLESS="false"
@@ -1755,7 +1754,8 @@ getConfigFileInfo() {
             ;;
         "vless")
             TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
-            REMARK="$current_timezone $DOMAIN"
+            local DM=${$DOMAIN%%.*}
+            REMARK="$(cat /etc/timezone)_$(date)_$(DM)"
             ENCRYPTION="none"
             ;;
         "vmess")
