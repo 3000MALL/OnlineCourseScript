@@ -1755,7 +1755,7 @@ getConfigFileInfo() {
         "vless")
             TLS=$(jq -r '.inbounds[0].streamSettings.security // "none"' "$CONFIG_FILE")
             local DM=${DOMAIN%%.*}
-            REMARK="$(cat /etc/timezone)_$(date)_$(DM)"
+            REMARK="$(cat /etc/timezone)_$DM"
             ENCRYPTION="none"
             ;;
         "vmess")
