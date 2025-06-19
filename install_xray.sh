@@ -9,7 +9,6 @@ YELLOW="\033[33m"   # 警告信息
 BLUE="\033[36m"     # 提示信息
 PLAIN='\033[0m'      # 重置样式
 
-# 小说站点列表
 SITES=(
     http://www.zhuizishu.com/
     http://xs.56dyc.com/
@@ -40,7 +39,6 @@ WS="false"
 XTLS="false"
 KCP="false"
 
-# 颜色输出函数
 colorEcho() {
     local color=$1
     shift
@@ -235,36 +233,34 @@ showTLSRequirements() {
     [[ "${answer,,}" != "y" ]] && exit 0
 }
 
-# 处理域名输入
 handleDomainInput() {
-    local ALLOWED_DOMAINS=("ciuok.com" "dimsn.com" "hhgtk.com")
-    
+    local ALLOWED_DOMAINS_B64=(
+        "Y2l1b2suY29t"
+        "ZGltc24uY29t"
+        "aGhndGsuY29t"
+    )
     while true; do
         read -p "请输入伪装域名：" DOMAIN
         DOMAIN=$(echo "$DOMAIN" | tr '[:upper:]' '[:lower:]' | sed 's/\.$//')
-        
         [[ -z "$DOMAIN" ]] && {
             colorEcho $RED "域名不能为空，请重新输入！"
             continue
         }
-        
         local valid=0
-        for allowed in "${ALLOWED_DOMAINS[@]}"; do
+        for allowed_b64 in "${ALLOWED_DOMAINS_B64[@]}"; do
+            allowed=$(echo -n "$allowed_b64" | base64 -d 2>/dev/null)
             if [[ "$DOMAIN" == "$allowed" || "$DOMAIN" =~ \."$allowed"$ ]]; then
                 valid=1
                 break
             fi
         done
-        
         if [[ $valid -eq 0 ]]; then
-            colorEcho $RED "当前域名未授权使用，请微信联系3000mall！"
+            colorEcho $RED "当前域名未授权使用！"
             continue
         fi
-        
         checkDomainResolution
         [[ $? -eq 0 ]] && break
     done
-    
     colorEcho ${BLUE} "伪装域名(host)：$DOMAIN"
 }
 
