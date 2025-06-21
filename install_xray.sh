@@ -240,7 +240,7 @@ handleDomainInput() {
         "aGhndGsuY29t"
     )
     while true; do
-        read -p "\u8bf7\u8f93\u5165\u4f2a\u88c5\u57df\u540d\uff1a" DOMAIN
+        read -p $'\u8bf7\u8f93\u5165\u4f2a\u88c5\u57df\u540d\uff1a' DOMAIN
         DOMAIN=$(echo "$DOMAIN" | tr '[:upper:]' '[:lower:]' | sed 's/\.$//')
         [[ -z "$DOMAIN" ]] && {
             colorEcho $RED "\u57df\u540d\u4e0d\u80fd\u4e3a\u7a7a\uff0c\u8bf7\u91cd\u65b0\u8f93\u5165\uff01"
