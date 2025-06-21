@@ -240,10 +240,10 @@ handleDomainInput() {
         "aGhndGsuY29t"
     )
     while true; do
-        read -p "请输入伪装域名：" DOMAIN
+        read -p "\u8bf7\u8f93\u5165\u4f2a\u88c5\u57df\u540d\uff1a" DOMAIN
         DOMAIN=$(echo "$DOMAIN" | tr '[:upper:]' '[:lower:]' | sed 's/\.$//')
         [[ -z "$DOMAIN" ]] && {
-            colorEcho $RED "域名不能为空，请重新输入！"
+            colorEcho $RED "\u57df\u540d\u4e0d\u80fd\u4e3a\u7a7a\uff0c\u8bf7\u91cd\u65b0\u8f93\u5165\uff01"
             continue
         }
         local valid=0
@@ -255,13 +255,13 @@ handleDomainInput() {
             fi
         done
         if [[ $valid -eq 0 ]]; then
-            colorEcho $RED "当前域名未授权使用！"
+            colorEcho $RED "\u5f53\u524d\u57df\u540d\u672a\u6388\u6743\u4f7f\u7528\uff01"
             continue
         fi
         checkDomainResolution
         [[ $? -eq 0 ]] && break
     done
-    colorEcho ${BLUE} "伪装域名(host)：$DOMAIN"
+    colorEcho ${BLUE} "\u4f2a\u88c5\u57df\u540d\u0028\u0068\u006f\u0073\u0074\u0029：$DOMAIN"
 }
 
 # 检查域名解析
