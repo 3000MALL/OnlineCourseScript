@@ -308,25 +308,25 @@ getData() {
                 colorEcho $RED "\u5f53\u524d\u57df\u540d\u672a\u6388\u6743\u4f7f\u7528\uff01"
                 continue
             fi
-						if [[ -f ~/v2ray.pem && -f ~/v2ray.key ]]; then
-								colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
-								CERT_FILE="/etc/v2ray/${DOMAIN}.pem"
-								KEY_FILE="/etc/v2ray/${DOMAIN}.key"
-						else
-								#resolve=`curl -sm8 ipget.net/?ip=${DOMAIN}`
-								resolve=$(curl -sH "accept: application/dns-json" "https://cloudflare-dns.com/dns-query?name=${DOMAIN}&type=A" && \
-										curl -sH "accept: application/dns-json" "https://cloudflare-dns.com/dns-query?name=${DOMAIN}&type=AAAA")
-								#if [ "$resolve" != "$v4" ] && [ "$resolve" != "$v6" ]; then
-								if ! echo "$resolve" | grep -q -e "$v4" -e "$v6"; then
-							if echo $resolve | grep -q html; then
-								colorEcho ${BLUE}  " 域名解析失败，请添加域名解析记录或等待DNS同步，稍后再试。"
-							else
-								colorEcho ${BLUE}  " ${DOMAIN} 解析结果：${v4}${v6}"
-							fi
-							colorEcho ${RED}  " 域名未解析到当前服务器IP("${BLUE}"ipv4:"${RED}"${v4} / "${BLUE}"ipv6:"${RED}"${v6} )!"
-							exit 1
-								fi
-						fi
+            if [[ -f ~/v2ray.pem && -f ~/v2ray.key ]]; then
+                    colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
+                    CERT_FILE="/etc/v2ray/${DOMAIN}.pem"
+                    KEY_FILE="/etc/v2ray/${DOMAIN}.key"
+            else
+                    #resolve=`curl -sm8 ipget.net/?ip=${DOMAIN}`
+                    resolve=$(curl -sH "accept: application/dns-json" "https://cloudflare-dns.com/dns-query?name=${DOMAIN}&type=A" && \
+                            curl -sH "accept: application/dns-json" "https://cloudflare-dns.com/dns-query?name=${DOMAIN}&type=AAAA")
+                    #if [ "$resolve" != "$v4" ] && [ "$resolve" != "$v6" ]; then
+                    if ! echo "$resolve" | grep -q -e "$v4" -e "$v6"; then
+                if echo $resolve | grep -q html; then
+                    colorEcho ${BLUE}  " 域名解析失败，请添加域名解析记录或等待DNS同步，稍后再试。"
+                else
+                    colorEcho ${BLUE}  " ${DOMAIN} 解析结果：${v4}${v6}"
+                fi
+                colorEcho ${RED}  " 域名未解析到当前服务器IP("${BLUE}"ipv4:"${RED}"${v4} / "${BLUE}"ipv6:"${RED}"${v6} )!"
+                exit 1
+                    fi
+            fi
             [[ $? -eq 0 ]] && break
         done
         colorEcho ${BLUE} "\u4f2a\u88c5\u57df\u540d\u0028\u0068\u006f\u0073\u0074\u0029：$DOMAIN"
