@@ -312,7 +312,6 @@ getData() {
             [[ $? -eq 0 ]] && break
         done
         colorEcho ${BLUE} "\u4f2a\u88c5\u57df\u540d\u0028\u0068\u006f\u0073\u0074\u0029：$DOMAIN"
-    }
         if [[ -f ~/v2ray.pem && -f ~/v2ray.key ]]; then
             colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
             CERT_FILE="/etc/v2ray/${DOMAIN}.pem"
